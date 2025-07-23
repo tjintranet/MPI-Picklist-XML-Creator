@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master ID Search & PDF Generator</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #0d6efd;
+            background-color: #e7f3ff;
+        }
+        .upload-area.dragover {
+            border-color: #0d6efd;
+            background-color: #e7f3ff;
+        }
+        .results-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .json-upload {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">Master ID Search & PDF Generator</h1>
+                
+                <!-- Excel File Upload Section -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Upload Excel File with Master IDs</h5>
+                        <button id="downloadTemplateBtn" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-download"></i> Download Template
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="upload-area" id="excelUploadArea">
+                            <i class="bi bi-file-earmark-excel fs-1 text-muted"></i>
+                            <h4>Drop Excel file here or click to browse</h4>
+                            <p class="text-muted">Upload XLSX file containing Master ID column</p>
+                            <input type="file" id="excelFileInput" class="d-none" accept=".xlsx,.xls">
+                        </div>
+                        <div id="uploadStatus" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="card mb-4" id="resultsCard" style="display: none;">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Search Results</h5>
+                        <button id="downloadPdfBtn" class="btn btn-success" disabled>
+                            <i class="bi bi-download"></i> Download PDF Report
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="searchSummary" class="mb-3"></div>
+                        <div class="results-table">
+                            <table class="table table-striped" id="resultsTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Master ID</th>
+                                        <th>Title</th>
+                                        <th>Trim Size</th>
+                                        <th>Paper</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let jsonData = [];
+        let excelData = [];
+        let searchResults = [];
+
+        // Load JSON data automatically on page load
+        loadJsonData();
+
+        // Excel File Upload Handlers
+        const excelUploadArea = document.getElementById('excelUploadArea');
+        const excelFileInput = document.getElementById('excelFileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        excelUploadArea.addEventListener('click', () => excelFileInput.click());
+        excelUploadArea.addEventListener('dragover', handleDragOver);
+        excelUploadArea.addEventListener('drop', handleExcelDrop);
+        excelFileInput.addEventListener('change', handleExcelFileSelect);
+
+        // Process and Download handlers
+        document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
+        document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+
+        async function loadJsonData() {
+            try {
+                // Try to load masterID_paper.json from the same directory
+                const response = await fetch('masterID_paper.json');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                jsonData = await response.json();
+                console.log(`JSON database loaded successfully! Found ${jsonData.length} records.`);
+                
+            } catch (error) {
+                console.error('Error loading JSON:', error);
+                alert('Error loading JSON database. Make sure "masterID_paper.json" is in the same directory as this HTML file.');
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleExcelDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleExcelFile(files[0]);
+            }
+        }
+
+        function handleExcelFileSelect(e) {
+            if (e.target.files.length > 0) {
+                handleExcelFile(e.target.files[0]);
+            }
+        }
+
+        function handleExcelFile(file) {
+            if (!file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
+                showStatus('Please select an Excel file (.xlsx or .xls).', 'danger');
+                return;
+            }
+
+            showStatus('Processing Excel file...', 'info');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Convert to JSON
+                    excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    if (excelData.length === 0) {
+                        showStatus('Excel file appears to be empty.', 'danger');
+                        return;
+                    }
+
+                    // Get headers (first row)
+                    const headers = excelData[0];
+                    
+                    // Automatically find "Master ID" column
+                    let masterIdColumnIndex = -1;
+                    headers.forEach((header, index) => {
+                        if (header && header.toString().toLowerCase().includes('master id')) {
+                            masterIdColumnIndex = index;
+                        }
+                    });
+                    
+                    if (masterIdColumnIndex === -1) {
+                        showStatus('Could not find "Master ID" column in the Excel file.', 'danger');
+                        return;
+                    }
+                    
+                    showStatus(`Excel file loaded successfully! Found ${excelData.length - 1} Master IDs. Processing automatically...`, 'success');
+                    
+                    // Automatically process the data
+                    setTimeout(() => processData(masterIdColumnIndex), 1000);
+                    
+                } catch (error) {
+                    showStatus('Error reading Excel file. Please check the file format.', 'danger');
+                    console.error('Excel parsing error:', error);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processData(columnIndex = null) {
+            if (jsonData.length === 0) {
+                alert('JSON database not loaded. Please refresh the page.');
+                return;
+            }
+
+            if (excelData.length === 0) {
+                alert('Please upload an Excel file first.');
+                return;
+            }
+
+            // Use provided columnIndex or get from select element
+            let masterIdColumnIndex = columnIndex;
+            if (masterIdColumnIndex === null) {
+                masterIdColumnIndex = parseInt(document.getElementById('columnSelect').value);
+                if (isNaN(masterIdColumnIndex)) {
+                    alert('Please select a valid column.');
+                    return;
+                }
+            }
+
+            // Extract Master IDs from Excel
+            const masterIds = [];
+            for (let i = 1; i < excelData.length; i++) { // Skip header row
+                const cellValue = excelData[i][masterIdColumnIndex];
+                if (cellValue) {
+                    masterIds.push(String(cellValue).trim());
+                }
+            }
+
+            // Search for matches in JSON data
+            searchResults = [];
+            const foundIds = new Set();
+
+            masterIds.forEach(masterId => {
+                const match = jsonData.find(item => 
+                    String(item['Master ID']).trim() === masterId
+                );
+                if (match) {
+                    searchResults.push(match);
+                    foundIds.add(masterId);
+                }
+            });
+
+            // Display results
+            displayResults(masterIds, foundIds);
+        }
+
+        function displayResults(searchedIds, foundIds) {
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            // Show summary
+            const summary = document.getElementById('searchSummary');
+            const totalSearched = searchedIds.length;
+            const totalFound = foundIds.size;
+            const notFound = totalSearched - totalFound;
+
+            summary.innerHTML = `
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="alert alert-info">
+                            <strong>Total Searched:</strong> ${totalSearched}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-success">
+                            <strong>Found:</strong> ${totalFound}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-warning">
+                            <strong>Not Found:</strong> ${notFound}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Populate results table
+            searchResults.forEach(result => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = result['Master ID'];
+                row.insertCell(1).textContent = result['Title'] || '';
+                row.insertCell(2).textContent = result['Trim Size'] || '';
+                row.insertCell(3).textContent = result['Paper'] || '';
+            });
+
+            // Show results section
+            document.getElementById('resultsCard').style.display = 'block';
+            document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
+        }
+
+        function downloadPDF() {
+            if (searchResults.length === 0) {
+                alert('No results to download.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4'); // Explicitly set A4 portrait
+
+            // Title
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Master ID Search Results', 20, 20);
+
+            // Summary
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
+            pdf.text(`Results Found: ${searchResults.length}`, 20, 36);
+
+            // Define column positions and widths - prioritizing Paper column
+            const colPositions = {
+                masterId: { x: 15, width: 20 },
+                title: { x: 37, width: 75 },
+                trimSize: { x: 114, width: 20 },
+                paper: { x: 136, width: 55 }
+            };
+
+            // Table headers
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            let yPos = 50;
+            
+            pdf.text('Master ID', colPositions.masterId.x, yPos);
+            pdf.text('Title', colPositions.title.x, yPos);
+            pdf.text('Trim Size', colPositions.trimSize.x, yPos);
+            pdf.text('Paper', colPositions.paper.x, yPos);
+
+            // Draw line under headers
+            pdf.setLineWidth(0.1);
+            pdf.line(15, yPos + 2, 195, yPos + 2);
+            yPos += 8;
+
+            // Table data
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(8);
+            
+            searchResults.forEach((result, index) => {
+                if (yPos > 275) { // New page if needed (leave space for footer)
+                    pdf.addPage();
+                    yPos = 20;
+                    
+                    // Repeat headers on new page
+                    pdf.setFontSize(9);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.text('Master ID', colPositions.masterId.x, yPos);
+                    pdf.text('Title', colPositions.title.x, yPos);
+                    pdf.text('Trim Size', colPositions.trimSize.x, yPos);
+                    pdf.text('Paper', colPositions.paper.x, yPos);
+                    pdf.line(15, yPos + 2, 195, yPos + 2);
+                    yPos += 8;
+                    pdf.setFontSize(8);
+                    pdf.setFont(undefined, 'normal');
+                }
+
+                // Get data (removed ISBN)
+                const masterId = String(result['Master ID'] || '');
+                const title = String(result['Title'] || '');
+                const trimSize = String(result['Trim Size'] || '');
+                const paper = String(result['Paper'] || '');
+
+                // Render each column with proper text fitting
+                pdf.text(masterId.length > 8 ? masterId.substring(0, 8) + '..' : masterId, 
+                         colPositions.masterId.x, yPos);
+                
+                // Handle title with text wrapping - reduced space but still readable
+                if (title.length > 38) {
+                    const titleLines = pdf.splitTextToSize(title, colPositions.title.width);
+                    pdf.text(titleLines[0], colPositions.title.x, yPos);
+                    if (titleLines.length > 1) {
+                        // Show first line and indicate more with ellipsis
+                        const firstLine = titleLines[0];
+                        if (firstLine.length < title.length) {
+                            pdf.text(firstLine.substring(0, firstLine.length - 3) + '...', 
+                                   colPositions.title.x, yPos);
+                        }
+                    }
+                } else {
+                    pdf.text(title, colPositions.title.x, yPos);
+                }
+                
+                pdf.text(trimSize.length > 8 ? trimSize.substring(0, 8) + '..' : trimSize, 
+                         colPositions.trimSize.x, yPos);
+                
+                // Handle paper column - now with maximum space for full details
+                pdf.text(paper, colPositions.paper.x, yPos);
+                
+                yPos += 6; // Slightly tighter spacing
+            });
+
+            // Footer with page numbers
+            const pageCount = pdf.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(8);
+                pdf.text(`Page ${i} of ${pageCount}`, 175, 287);
+            }
+
+            // Save the PDF
+            const fileName = `master_id_results_${new Date().toISOString().split('T')[0]}.pdf`;
+            pdf.save(fileName);
+        }
+
+        function downloadTemplate() {
+            // Create a link element to download the template file
+            const link = document.createElement('a');
+            link.href = 'Master_POD_Search.xlsx';
+            link.download = 'Master_POD_Search.xlsx';
+            link.style.display = 'none';
+            
+            // Add to DOM, click, and remove
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showStatus(message, type) {
+            uploadStatus.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>
