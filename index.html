@@ -47,9 +47,14 @@
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Upload Excel File with Master IDs</h5>
-                        <button id="downloadTemplateBtn" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-download"></i> Download Template
-                        </button>
+                        <div>
+                            <button id="downloadTemplateBtn" class="btn btn-outline-primary btn-sm me-2">
+                                <i class="bi bi-download"></i> Download Template
+                            </button>
+                            <button id="clearAllBtn" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-clockwise"></i> Clear All
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="upload-area" id="excelUploadArea">
@@ -116,6 +121,7 @@
         // Process and Download handlers
         document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
         document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+        document.getElementById('clearAllBtn').addEventListener('click', clearAll);
 
         async function loadJsonData() {
             try {
@@ -411,6 +417,36 @@
             // Save the PDF
             const fileName = `master_id_results_${new Date().toISOString().split('T')[0]}.pdf`;
             pdf.save(fileName);
+        }
+
+        function clearAll() {
+            // Clear all data
+            excelData = [];
+            searchResults = [];
+            
+            // Reset file inputs
+            document.getElementById('excelFileInput').value = '';
+            
+            // Clear status messages
+            document.getElementById('uploadStatus').innerHTML = '';
+            
+            // Hide results section
+            document.getElementById('resultsCard').style.display = 'none';
+            
+            // Clear results table
+            document.getElementById('resultsTableBody').innerHTML = '';
+            document.getElementById('searchSummary').innerHTML = '';
+            
+            // Disable PDF download button
+            document.getElementById('downloadPdfBtn').disabled = true;
+            
+            // Show success message
+            showStatus('Application cleared successfully. Ready for new upload.', 'success');
+            
+            // Clear the success message after 3 seconds
+            setTimeout(() => {
+                document.getElementById('uploadStatus').innerHTML = '';
+            }, 3000);
         }
 
         function downloadTemplate() {
