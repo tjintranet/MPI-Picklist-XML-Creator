@@ -43,6 +43,32 @@
             <div class="col-12">
                 <h1 class="text-center mb-4">Master ID Search & PDF Generator</h1>
                 
+                <!-- Single Master ID Lookup Section -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Lookup - Single Master ID</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <input type="text" id="singleMasterIdInput" class="form-control" 
+                                           placeholder="Enter Master ID (e.g., TCE104)" maxlength="20">
+                                    <button id="lookupBtn" class="btn btn-primary" type="button">
+                                        <i class="bi bi-search"></i> Lookup
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <button id="clearLookupBtn" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div id="singleLookupResult" class="mt-3"></div>
+                    </div>
+                </div>
+                
                 <!-- Excel File Upload Section -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -122,6 +148,13 @@
         document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
         document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
         document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+        document.getElementById('lookupBtn').addEventListener('click', lookupSingleMasterId);
+        document.getElementById('clearLookupBtn').addEventListener('click', clearLookup);
+        document.getElementById('singleMasterIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                lookupSingleMasterId();
+            }
+        });
 
         async function loadJsonData() {
             try {
@@ -201,7 +234,7 @@
                         return;
                     }
                     
-                    showStatus(`Excel file loaded successfully! Found ${excelData.length - 1} Master IDs.`, 'success');
+                    showStatus(`Excel file loaded successfully! Found ${excelData.length - 1} Master IDs. Processing automatically...`, 'success');
                     
                     // Automatically process the data
                     setTimeout(() => processData(masterIdColumnIndex), 1000);
@@ -417,6 +450,78 @@
             // Save the PDF
             const fileName = `master_id_results_${new Date().toISOString().split('T')[0]}.pdf`;
             pdf.save(fileName);
+        }
+
+        function lookupSingleMasterId() {
+            const input = document.getElementById('singleMasterIdInput');
+            const resultDiv = document.getElementById('singleLookupResult');
+            const masterId = input.value.trim();
+            
+            if (!masterId) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">Please enter a Master ID to search.</div>';
+                return;
+            }
+            
+            if (jsonData.length === 0) {
+                resultDiv.innerHTML = '<div class="alert alert-danger">JSON database not loaded. Please refresh the page.</div>';
+                return;
+            }
+            
+            // Search for the Master ID
+            const result = jsonData.find(item => 
+                String(item['Master ID']).trim().toLowerCase() === masterId.toLowerCase()
+            );
+            
+            if (result) {
+                // Display the result in a compact format with no green background
+                resultDiv.innerHTML = `
+                    <div class="border rounded p-3" style="background-color: #f8f9fa;">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Master ID Found</strong>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6 col-md-3">
+                                <small class="text-muted">Master ID:</small><br>
+                                <span class="fw-bold">${result['Master ID']}</span>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <small class="text-muted">ISBN:</small><br>
+                                <span>${result['ISBN'] || 'N/A'}</span>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <small class="text-muted">Trim Size:</small><br>
+                                <span>${result['Trim Size'] || 'N/A'}</span>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <small class="text-muted">Paper:</small><br>
+                                <span class="fw-bold">${result['Paper'] || 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <small class="text-muted">Title:</small><br>
+                                <span class="fw-bold">${result['Title'] || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="border rounded p-2" style="background-color: #fff3cd;">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            <span><strong>Not Found:</strong> Master ID "${masterId}" was not found in the database.</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function clearLookup() {
+            document.getElementById('singleMasterIdInput').value = '';
+            document.getElementById('singleLookupResult').innerHTML = '';
+            document.getElementById('singleMasterIdInput').focus();
         }
 
         function clearAll() {
