@@ -49,13 +49,14 @@ project-folder/
 
 #### Step 1: Prepare Your CSV Data
 - Create a CSV file with Master IDs in **column D** (4th column)
+- Include print quantities in **column B** (2nd column)
 - First row should be headers (will be automatically skipped)
 - Save the file in CSV format (.csv)
 
 #### Step 2: Upload & Process
 - Upload your CSV file using drag & drop or the file browser
-- The application automatically detects Master IDs in column D and processes the data
-- View the search results grouped by paper type and summary statistics
+- The application automatically detects Master IDs in column D and quantities in column B
+- View the search results grouped by paper type with summary statistics
 
 #### Step 3: Download Complete Report
 - Click "Download PDF" to generate and download the results
@@ -63,6 +64,7 @@ project-folder/
   - Summary with total searched, found, and missing counts
   - Missing Master IDs section (if any exist)
   - Results grouped by paper type with gray section headers
+  - Complete product details including print quantities
   - Professional formatting optimized for A4 printing
 
 ### Additional Features
@@ -74,19 +76,21 @@ project-folder/
 
 ## CSV File Format
 
-The CSV file should contain Master IDs in **column D** (4th column):
+The CSV file should contain Master IDs in **column D** and print quantities in **column B**:
 
-| Column A | Column B | Column C | Column D (Master ID) |
-|----------|----------|----------|----------------------|
-| Data     | Data     | Data     | TCE104              |
-| Data     | Data     | Data     | TCB056              |
-| Data     | Data     | Data     | TCE105              |
+| Column A | Column B (Quantity) | Column C | Column D (Master ID) |
+|----------|---------------------|----------|----------------------|
+| Data     | 500                 | Data     | TCE104              |
+| Data     | 1000                | Data     | TCB056              |
+| Data     | 250                 | Data     | TCE105              |
 
 **Important Notes:**
-- Master IDs must be in column D
+- Master IDs must be in column D (4th column)
+- Print quantities must be in column B (2nd column)
 - First row (headers) is automatically skipped
 - Empty rows are filtered out automatically
 - File must be saved in .csv format
+- If quantity is empty, it will show as '0'
 
 ## PDF Output Features
 
@@ -94,12 +98,12 @@ The CSV file should contain Master IDs in **column D** (4th column):
 - **Complete Audit Trail**: Shows both found results and missing Master IDs
 - **Missing Master IDs Section**: Listed at the top of PDF if any Master IDs weren't found
 - **Grouped Results**: Results organized by paper type with gray section headers
-- **Complete Information**: Shows Master ID, Title, Trim Size, and full Paper specifications
+- **Complete Information**: Shows Master ID, Title, Trim Size, Paper specifications, and print quantities
 - **Professional Formatting**: Clean headers, proper spacing, and page numbering
 - **Multi-page Support**: Automatically handles large datasets across multiple pages
 - **Header Repetition**: Column headers repeat on each new page
 - **Summary Statistics**: Shows total searched, found, and not found counts
-- **Optimized Columns**: Prioritizes paper specifications with maximum width for complete details
+- **Optimized Columns**: Balanced layout showing all essential information including quantities
 
 ## User Interface Features
 
@@ -116,6 +120,7 @@ The CSV file should contain Master IDs in **column D** (4th column):
 - **Results Summary**: Statistical overview of search results
 - **Missing ID Display**: Clear identification of Master IDs not found in database
 - **Grouped Display**: Results automatically organized by paper type on screen
+- **Quantity Display**: Print quantities shown alongside product details
 
 ## Technical Details
 
