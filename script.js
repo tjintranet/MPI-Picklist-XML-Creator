@@ -110,7 +110,7 @@ function handleCsvFile(file) {
                 return;
             }
 
-            showStatus('CSV file loaded successfully! Found ' + (csvData.length - 1) + ' data rows. Processing Master IDs from column D...', 'success');
+            showStatus('CSV file loaded successfully! Found ' + (csvData.length - 1) + ' data rows. Processing Master IDs from column D and quantities from column B...', 'success');
             setTimeout(processData, 1000);
             
         } catch (error) {
@@ -199,15 +199,29 @@ function processData() {
     }
 
     var masterIds = [];
+    var quantities = [];
+    
+    console.log('Processing CSV data. Total rows:', csvData.length);
+    console.log('Sample row data:', csvData[1]); // Debug: show first data row
+    
     for (var i = 1; i < csvData.length; i++) {
-        var cellValue = csvData[i][3]; // Column D = index 3
-        if (cellValue && String(cellValue).trim() !== '') {
-            var masterId = String(cellValue).trim();
+        var masterIdValue = csvData[i][3]; // Column D = index 3
+        var quantityValue = csvData[i][1]; // Column B = index 1
+        
+        console.log('Row ' + i + ': Master ID =', masterIdValue, ', Quantity =', quantityValue); // Debug
+        
+        if (masterIdValue && String(masterIdValue).trim() !== '') {
+            var masterId = String(masterIdValue).trim();
             if (masterId.toLowerCase() !== 'master id' && masterId.toLowerCase() !== 'masterid') {
                 masterIds.push(masterId);
+                quantities.push(String(quantityValue || '0').trim());
+                console.log('Added: Master ID =', masterId, ', Quantity =', quantityValue); // Debug
             }
         }
     }
+
+    console.log('Total Master IDs processed:', masterIds.length);
+    console.log('Quantities array:', quantities);
 
     searchResults = [];
     missingMasterIds = [];
@@ -215,6 +229,7 @@ function processData() {
 
     for (var i = 0; i < masterIds.length; i++) {
         var masterId = masterIds[i];
+        var quantity = quantities[i];
         var match = null;
         
         for (var j = 0; j < jsonData.length; j++) {
@@ -225,13 +240,26 @@ function processData() {
         }
         
         if (match) {
-            searchResults.push(match);
+            // Create a copy of the match and add quantity
+            var resultWithQuantity = {
+                'Master ID': match['Master ID'],
+                'ISBN': match['ISBN'],
+                'Title': match['Title'],
+                'Trim Size': match['Trim Size'],
+                'Paper': match['Paper'],
+                'Quantity': quantity
+            };
+            
+            console.log('Result with quantity:', resultWithQuantity); // Debug
+            
+            searchResults.push(resultWithQuantity);
             foundIds.push(masterId);
         } else {
             missingMasterIds.push(masterId);
         }
     }
 
+    console.log('Search results with quantities:', searchResults);
     displayResults(masterIds, foundIds);
 }
 
@@ -303,7 +331,7 @@ function updateResultsDisplay() {
         var headerRow = tbody.insertRow();
         headerRow.className = 'table-secondary';
         var headerCell = headerRow.insertCell();
-        headerCell.colSpan = 4;
+        headerCell.colSpan = 5;
         headerCell.innerHTML = '<strong>' + paperType + ' (' + items.length + ' items)</strong>';
 
         for (var j = 0; j < items.length; j++) {
@@ -313,6 +341,7 @@ function updateResultsDisplay() {
             row.insertCell(1).textContent = result['Title'] || '';
             row.insertCell(2).textContent = result['Trim Size'] || '';
             row.insertCell(3).textContent = result['Paper'] || '';
+            row.insertCell(4).textContent = result['Quantity'] || '';
         }
     }
 }
@@ -397,8 +426,9 @@ function downloadPDF() {
     var colPositions = {
         masterId: { x: 15 },
         title: { x: 37 },
-        trimSize: { x: 114 },
-        paper: { x: 136 }
+        trimSize: { x: 105 },
+        paper: { x: 125 },
+        quantity: { x: 175 }
     };
 
     var paperTypes = Object.keys(groupedResults).sort();
@@ -427,6 +457,7 @@ function downloadPDF() {
         pdf.text('Title', colPositions.title.x, yPos);
         pdf.text('Trim Size', colPositions.trimSize.x, yPos);
         pdf.text('Paper', colPositions.paper.x, yPos);
+        pdf.text('Quantity', colPositions.quantity.x, yPos);
 
         pdf.setLineWidth(0.2);
         pdf.line(15, yPos + 2, 195, yPos + 2);
@@ -454,6 +485,7 @@ function downloadPDF() {
                 pdf.text('Title', colPositions.title.x, yPos);
                 pdf.text('Trim Size', colPositions.trimSize.x, yPos);
                 pdf.text('Paper', colPositions.paper.x, yPos);
+                pdf.text('Quantity', colPositions.quantity.x, yPos);
                 pdf.line(15, yPos + 2, 195, yPos + 2);
                 yPos += 8;
                 pdf.setFontSize(7);
@@ -464,17 +496,19 @@ function downloadPDF() {
             var title = String(result['Title'] || '');
             var trimSize = String(result['Trim Size'] || '');
             var paper = String(result['Paper'] || '');
+            var quantity = String(result['Quantity'] || '');
 
             pdf.text(masterId.length > 10 ? masterId.substring(0, 10) + '..' : masterId, colPositions.masterId.x, yPos);
             
-            if (title.length > 40) {
-                pdf.text(title.substring(0, 40) + '...', colPositions.title.x, yPos);
+            if (title.length > 35) {
+                pdf.text(title.substring(0, 35) + '...', colPositions.title.x, yPos);
             } else {
                 pdf.text(title, colPositions.title.x, yPos);
             }
             
             pdf.text(trimSize, colPositions.trimSize.x, yPos);
-            pdf.text(paper, colPositions.paper.x, yPos);
+            pdf.text(paper.length > 25 ? paper.substring(0, 25) + '..' : paper, colPositions.paper.x, yPos);
+            pdf.text(quantity, colPositions.quantity.x, yPos);
             
             yPos += 5;
         }
