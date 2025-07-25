@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master ID Search & PDF Generator</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         .upload-area {
             border: 2px dashed #dee2e6;
@@ -31,6 +33,34 @@
         }
         .table td {
             white-space: nowrap;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+        .delete-btn:hover {
+            color: #c82333;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+        }
+        .delete-section-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 8px;
+            float: right;
+            margin-left: 10px;
+        }
+        .delete-section-btn:hover {
+            color: #c82333;
+            background-color: rgba(248, 249, 250, 0.8);
+            border-radius: 3px;
         }
     </style>
 </head>
@@ -78,7 +108,14 @@
                 <div class="card mb-4" id="resultsCard" style="display: none;">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Search Results</h5>
-                        <button id="downloadPdfBtn" class="btn btn-success" disabled>Download PDF</button>
+                        <div class="d-flex gap-2">
+                            <button id="downloadPdfBtn" class="btn btn-success" disabled>
+                                <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+                            </button>
+                            <button id="downloadXmlBtn" class="btn btn-info" disabled>
+                                <i class="bi bi-file-earmark-code me-1"></i>Download XML
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="searchSummary" class="mb-3"></div>
@@ -91,12 +128,42 @@
                                         <th scope="col">Trim Size</th>
                                         <th scope="col">Paper</th>
                                         <th scope="col">Quantity</th>
+                                        <th scope="col">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="resultsTableBody"></tbody>
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="confirmationModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Deletion
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmationMessage" class="mb-3"></p>
+                    <div class="alert alert-warning d-flex align-items-center mb-0">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <small>This action cannot be undone.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
                 </div>
             </div>
         </div>

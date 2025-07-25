@@ -1,23 +1,25 @@
-# Master ID Search & PDF Generator
+# Master ID Search & PDF/XML Generator
 
-A web application that searches for Master IDs in a JSON database and generates downloadable PDF reports with detailed product information. Features both single Master ID lookup and bulk CSV file processing with automatic grouping by paper type.
+A web application that searches for Master IDs in a JSON database and generates downloadable PDF reports and individual XML files with detailed product information. Features both single Master ID lookup and bulk CSV file processing with automatic grouping by paper type for PDFs and individual ISBN-named XML files.
 
 ## Overview
 
-This application allows users to quickly lookup individual Master IDs or upload CSV files containing multiple Master IDs, automatically searches for matches in a JSON database, and generates professional PDF reports with the found results grouped by paper type. Missing Master IDs are clearly identified in both the interface and PDF output.
+This application allows users to quickly lookup individual Master IDs or upload CSV files containing multiple Master IDs, automatically searches for matches in a JSON database, and generates professional PDF reports grouped by paper type or individual XML files named by ISBN. Missing Master IDs are clearly identified in both the interface and output files.
 
 ## Features
 
 - **Single Master ID Lookup**: Instant search with on-screen results display
-- **Bulk CSV Processing**: Upload CSV files with Master IDs in column D
+- **Bulk CSV Processing**: Upload CSV files with Master IDs in column D and quantities in column B
 - **Automatic JSON Database Loading**: Loads `masterID_paper.json` automatically from the same directory
 - **CSV File Upload**: Drag & drop or click to upload CSV files (.csv)
-- **Automatic Grouping**: Results always grouped by paper type for better organization
+- **Dual Export Options**:
+  - **PDF Reports**: Results grouped by paper type for printing and organization
+  - **XML Files**: Individual XML files per item, named by ISBN for automated processing
 - **Missing ID Tracking**: Identifies and reports Master IDs not found in database
-- **PDF Report Generation**: Creates professional A4 PDF reports with optimized layout
-- **Complete Audit Trail**: PDF includes both found results and missing Master IDs
-- **Clean Interface**: Minimal, professional design without unnecessary icons
+- **Complete Audit Trail**: Both PDF and XML exports include comprehensive data
+- **Clean Interface**: Minimal, professional design with proper button spacing
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
+- **Individual Item Management**: Delete specific items or entire paper type sections
 
 ## File Structure
 
@@ -58,8 +60,10 @@ project-folder/
 - The application automatically detects Master IDs in column D and quantities in column B
 - View the search results grouped by paper type with summary statistics
 
-#### Step 3: Download Complete Report
-- Click "Download PDF" to generate and download the results
+#### Step 3: Choose Your Export Format
+
+**Option A: Download PDF Report**
+- Click "Download PDF" to generate a comprehensive report
 - The PDF includes:
   - Summary with total searched, found, and missing counts
   - Missing Master IDs section (if any exist)
@@ -67,9 +71,19 @@ project-folder/
   - Complete product details including print quantities
   - Professional formatting optimized for A4 printing
 
+**Option B: Download Individual XML Files**
+- Click "Download XML" to generate individual XML files
+- Creates one XML file per found result
+- Each file is named using the ISBN (e.g., `9781234567890.xml`)
+- If ISBN is missing, falls back to Master ID with `_no_isbn` suffix
+- All XML files are packaged in a single ZIP archive
+- Perfect for automated processing systems
+
 ### Additional Features
 
 - **Clear All**: Reset the entire application (clears both single lookup and bulk results)
+- **Delete Individual Items**: Remove specific results from the display and exports
+- **Delete Paper Type Sections**: Remove entire paper type groups at once
 - **Automatic Header Detection**: CSV header row is automatically skipped
 - **Responsive Interface**: Works on desktop, tablet, and mobile devices
 - **Error Handling**: Clear feedback for file format issues and missing data
@@ -92,7 +106,9 @@ The CSV file should contain Master IDs in **column D** and print quantities in *
 - File must be saved in .csv format
 - If quantity is empty, it will show as '0'
 
-## PDF Output Features
+## Export Format Details
+
+### PDF Output Features
 
 - **A4 Optimized Layout**: Designed specifically for A4 paper size with proper margins
 - **Complete Audit Trail**: Shows both found results and missing Master IDs
@@ -104,6 +120,28 @@ The CSV file should contain Master IDs in **column D** and print quantities in *
 - **Header Repetition**: Column headers repeat on each new page
 - **Summary Statistics**: Shows total searched, found, and not found counts
 - **Optimized Columns**: Balanced layout showing all essential information including quantities
+
+### XML Output Features
+
+- **Individual Files**: One XML file per search result
+- **ISBN-based Naming**: Files named using ISBN numbers for easy identification
+- **Fallback Naming**: Uses Master ID with `_no_isbn` suffix when ISBN is missing
+- **Clean XML Structure**: Simple, standardized format for each book order:
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <BookOrder>
+    <MasterID>TCE104</MasterID>
+    <ISBN>9781234567890</ISBN>
+    <Title>Sample Book Title</Title>
+    <TrimSize>6x9</TrimSize>
+    <Paper>50# White Offset</Paper>
+    <Quantity>500</Quantity>
+    <GeneratedDate>2025-07-24T...</GeneratedDate>
+  </BookOrder>
+  ```
+- **ZIP Archive**: All XML files packaged together for easy download
+- **Automation Ready**: Perfect for feeding into automated processing systems
+- **Timestamped Archive**: ZIP file includes generation date in filename
 
 ## User Interface Features
 
@@ -121,13 +159,15 @@ The CSV file should contain Master IDs in **column D** and print quantities in *
 - **Missing ID Display**: Clear identification of Master IDs not found in database
 - **Grouped Display**: Results automatically organized by paper type on screen
 - **Quantity Display**: Print quantities shown alongside product details
+- **Individual Controls**: Delete specific items or entire sections
+- **Dual Export Options**: Choose between PDF reports or XML files with proper button spacing
 
 ## Technical Details
 
 ### Technologies Used
 - **HTML5** with responsive Bootstrap 5 framework
-- **JavaScript** for file processing and PDF generation
-- **SheetJS (XLSX)** for Excel file parsing
+- **JavaScript** for file processing and PDF/XML generation
+- **JSZip** for creating ZIP archives with multiple XML files
 - **jsPDF** for PDF generation
 - **Bootstrap Icons** for UI elements
 
@@ -138,18 +178,20 @@ The CSV file should contain Master IDs in **column D** and print quantities in *
 - **Requires**: Modern browser with JavaScript enabled
 
 ### File Size Limits
-- **Excel Files**: Recommended under 10MB for optimal performance
+- **CSV Files**: Recommended under 10MB for optimal performance
 - **JSON Database**: No practical limit, tested with 10,000+ records
 - **PDF Output**: Handles thousands of results with automatic pagination
+- **XML Output**: Efficiently processes large datasets into individual files
 
 ## Error Handling
 
 The application includes comprehensive error handling for:
 - **Missing JSON Database**: Clear error message if masterID_paper.json not found
-- **Invalid Excel Files**: Validation for proper Excel format
+- **Invalid CSV Files**: Validation for proper CSV format
 - **Missing Master ID Column**: Automatic detection with fallback error
 - **Empty Files**: Proper handling of empty or corrupted files
 - **Network Issues**: Graceful handling of file loading problems
+- **Missing Libraries**: Checks for required JavaScript libraries (JSZip, jsPDF)
 
 ## Performance Notes
 
@@ -157,6 +199,7 @@ The application includes comprehensive error handling for:
 - **No Server Required**: Can be run from any web server or locally
 - **Memory Efficient**: Optimized for large datasets
 - **Fast Search**: Efficient matching algorithm for quick results
+- **Optimized Exports**: Both PDF and XML generation optimized for performance
 
 ## Troubleshooting
 
@@ -173,15 +216,15 @@ The application includes comprehensive error handling for:
 - Check file permissions and web server configuration
 - Verify JSON syntax is valid
 
-#### Excel Upload Issues
-- Ensure file is in .xlsx or .xls format
-- Check that "Master ID" column exists and contains data
-- Try re-saving the Excel file if upload fails
+#### CSV Upload Issues
+- Ensure file is in .csv format
+- Check that Master IDs are in column D and quantities in column B
+- Try re-saving the CSV file if upload fails
 
-#### PDF Generation Problems
-- Ensure browser allows downloads
-- Check for popup blockers that might prevent PDF download
-- Try with a smaller dataset if memory issues occur
+#### Export Problems
+- **PDF Issues**: Ensure browser allows downloads and check for popup blockers
+- **XML Issues**: Verify JSZip library loads properly; refresh page if needed
+- **Large Datasets**: Try with smaller datasets if memory issues occur
 
 ## Keyboard Shortcuts
 
@@ -197,6 +240,9 @@ The application includes comprehensive error handling for:
 - **Fast Response**: Optimized search algorithm for quick results
 
 ### Bulk Processing
+- **Efficient Parsing**: Optimized CSV processing for large files
+- **Memory Management**: Smart handling of large datasets
+- **Export Optimization**: Both PDF and XML generation optimized for speed
 
 ## License
 

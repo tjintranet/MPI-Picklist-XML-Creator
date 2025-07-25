@@ -2,11 +2,35 @@ var jsonData = [];
 var csvData = [];
 var searchResults = [];
 var missingMasterIds = [];
+var pendingDeleteAction = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadJsonData();
     setupEventListeners();
+    setupConfirmationModal();
 });
+
+function setupConfirmationModal() {
+    var confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    confirmDeleteBtn.addEventListener('click', function() {
+        if (pendingDeleteAction) {
+            pendingDeleteAction();
+            pendingDeleteAction = null;
+        }
+        
+        // Hide the modal
+        var modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+        modal.hide();
+    });
+}
+
+function showConfirmationModal(message, deleteAction) {
+    document.getElementById('confirmationMessage').textContent = message;
+    pendingDeleteAction = deleteAction;
+    
+    var modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+    modal.show();
+}
 
 function setupEventListeners() {
     var csvUploadArea = document.getElementById('csvUploadArea');
@@ -20,6 +44,7 @@ function setupEventListeners() {
     csvFileInput.addEventListener('change', handleCsvFileSelect);
 
     document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
+    document.getElementById('downloadXmlBtn').addEventListener('click', downloadXML);
     document.getElementById('clearAllBtn').addEventListener('click', clearAll);
     document.getElementById('lookupBtn').addEventListener('click', lookupSingleMasterId);
     document.getElementById('clearLookupBtn').addEventListener('click', clearLookup);
@@ -202,20 +227,22 @@ function processData() {
     var quantities = [];
     
     console.log('Processing CSV data. Total rows:', csvData.length);
-    console.log('Sample row data:', csvData[1]); // Debug: show first data row
+    if (csvData.length > 1) {
+        console.log('Sample row data:', csvData[1]);
+    }
     
     for (var i = 1; i < csvData.length; i++) {
         var masterIdValue = csvData[i][3]; // Column D = index 3
         var quantityValue = csvData[i][1]; // Column B = index 1
         
-        console.log('Row ' + i + ': Master ID =', masterIdValue, ', Quantity =', quantityValue); // Debug
+        console.log('Row ' + i + ': Master ID =', masterIdValue, ', Quantity =', quantityValue);
         
         if (masterIdValue && String(masterIdValue).trim() !== '') {
             var masterId = String(masterIdValue).trim();
             if (masterId.toLowerCase() !== 'master id' && masterId.toLowerCase() !== 'masterid') {
                 masterIds.push(masterId);
                 quantities.push(String(quantityValue || '0').trim());
-                console.log('Added: Master ID =', masterId, ', Quantity =', quantityValue); // Debug
+                console.log('Added: Master ID =', masterId, ', Quantity =', quantityValue);
             }
         }
     }
@@ -240,7 +267,6 @@ function processData() {
         }
         
         if (match) {
-            // Create a copy of the match and add quantity
             var resultWithQuantity = {
                 'Master ID': match['Master ID'],
                 'ISBN': match['ISBN'],
@@ -250,7 +276,7 @@ function processData() {
                 'Quantity': quantity
             };
             
-            console.log('Result with quantity:', resultWithQuantity); // Debug
+            console.log('Result with quantity:', resultWithQuantity);
             
             searchResults.push(resultWithQuantity);
             foundIds.push(masterId);
@@ -272,6 +298,17 @@ function displayResults(searchedIds, foundIds) {
     var totalFound = foundIds.length;
     var notFound = totalSearched - totalFound;
 
+    displayResultsSummary(totalSearched, totalFound, notFound);
+    updateResultsDisplay();
+
+    document.getElementById('resultsCard').style.display = 'block';
+    document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
+    document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
+}
+
+function displayResultsSummary(totalSearched, totalFound, notFound) {
+    var summary = document.getElementById('searchSummary');
+    
     var summaryHtml = '<div class="row mb-3">';
     summaryHtml += '<div class="col-md-4">';
     summaryHtml += '<div class="alert alert-info">';
@@ -303,10 +340,6 @@ function displayResults(searchedIds, foundIds) {
     }
 
     summary.innerHTML = summaryHtml;
-    updateResultsDisplay();
-
-    document.getElementById('resultsCard').style.display = 'block';
-    document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
 }
 
 function updateResultsDisplay() {
@@ -331,23 +364,208 @@ function updateResultsDisplay() {
         var headerRow = tbody.insertRow();
         headerRow.className = 'table-secondary';
         var headerCell = headerRow.insertCell();
-        headerCell.colSpan = 5;
-        headerCell.innerHTML = '<strong>' + paperType + ' (' + items.length + ' items)</strong>';
+        headerCell.colSpan = 6;
+        
+        var headerContent = '<strong>' + paperType + ' (' + items.length + ' items)</strong>';
+        headerContent += '<button class="delete-section-btn" title="Delete entire ' + paperType + ' section">';
+        headerContent += '<i class="bi bi-trash"></i> Delete Section';
+        headerContent += '</button>';
+        
+        headerCell.innerHTML = headerContent;
+        
+        // Add click event to the delete section button
+        var deleteSectionBtn = headerCell.querySelector('.delete-section-btn');
+        deleteSectionBtn.onclick = function(paperTypeName) {
+            return function() {
+                deletePaperTypeSection(paperTypeName);
+            };
+        }(paperType);
 
         for (var j = 0; j < items.length; j++) {
             var result = items[j];
             var row = tbody.insertRow();
+            row.setAttribute('data-master-id', result['Master ID']);
             row.insertCell(0).textContent = result['Master ID'];
             row.insertCell(1).textContent = result['Title'] || '';
             row.insertCell(2).textContent = result['Trim Size'] || '';
             row.insertCell(3).textContent = result['Paper'] || '';
             row.insertCell(4).textContent = result['Quantity'] || '';
+            
+            var actionCell = row.insertCell(5);
+            var deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            deleteBtn.title = 'Delete this item';
+            deleteBtn.onclick = function(masterId) {
+                return function() {
+                    deleteResultRow(masterId);
+                };
+            }(result['Master ID']);
+            actionCell.appendChild(deleteBtn);
         }
     }
 }
 
-function printResults() {
-    // Function removed - no longer needed
+function deletePaperTypeSection(paperType) {
+    var itemCount = 0;
+    for (var i = 0; i < searchResults.length; i++) {
+        if ((searchResults[i]['Paper'] || 'Unknown') === paperType) {
+            itemCount++;
+        }
+    }
+    
+    var message = 'Are you sure you want to delete the entire "' + paperType + '" section? This will remove ' + itemCount + ' item' + (itemCount === 1 ? '' : 's') + '.';
+    
+    showConfirmationModal(message, function() {
+        // Remove all items with this paper type from searchResults array
+        searchResults = searchResults.filter(function(result) {
+            return (result['Paper'] || 'Unknown') !== paperType;
+        });
+        
+        // Refresh the display
+        updateResultsDisplay();
+        
+        // Update the summary
+        var foundIds = [];
+        for (var i = 0; i < searchResults.length; i++) {
+            foundIds.push(searchResults[i]['Master ID']);
+        }
+        
+        // Recalculate summary
+        var originalSearched = foundIds.length + missingMasterIds.length;
+        displayResultsSummary(originalSearched, foundIds.length, missingMasterIds.length);
+        
+        // Update buttons state
+        document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
+        document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
+        
+        // Hide results section if no results left
+        if (searchResults.length === 0) {
+            document.getElementById('resultsCard').style.display = 'none';
+        }
+    });
+}
+
+function deleteResultRow(masterId) {
+    var message = 'Are you sure you want to delete the item with Master ID: ' + masterId + '?';
+    
+    showConfirmationModal(message, function() {
+        for (var i = 0; i < searchResults.length; i++) {
+            if (searchResults[i]['Master ID'] === masterId) {
+                searchResults.splice(i, 1);
+                break;
+            }
+        }
+        
+        updateResultsDisplay();
+        
+        var foundIds = [];
+        for (var i = 0; i < searchResults.length; i++) {
+            foundIds.push(searchResults[i]['Master ID']);
+        }
+        
+        var originalSearched = foundIds.length + missingMasterIds.length;
+        displayResultsSummary(originalSearched, foundIds.length, missingMasterIds.length);
+        
+        document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
+        document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
+        
+        if (searchResults.length === 0) {
+            document.getElementById('resultsCard').style.display = 'none';
+        }
+    });
+}
+
+function downloadXML() {
+    if (searchResults.length === 0) {
+        alert('No results to download.');
+        return;
+    }
+
+    console.log('Generating individual XML files for', searchResults.length, 'results');
+
+    // Check if JSZip is available
+    if (typeof JSZip === 'undefined') {
+        alert('JSZip library not loaded. Please refresh the page and try again.');
+        return;
+    }
+
+    // Create JSZip instance
+    var zip = new JSZip();
+
+    // Generate individual XML file for each result
+    for (var i = 0; i < searchResults.length; i++) {
+        var result = searchResults[i];
+        
+        // Use ISBN as filename, fallback to Master ID if ISBN is missing
+        var isbn = String(result['ISBN'] || '').trim();
+        var masterId = String(result['Master ID'] || '').trim();
+        
+        var filename;
+        if (isbn && isbn !== '' && isbn.toLowerCase() !== 'n/a') {
+            filename = sanitizeFilename(isbn) + '.xml';
+        } else {
+            // Fallback to Master ID if ISBN is not available
+            filename = sanitizeFilename(masterId) + '_no_isbn.xml';
+        }
+        
+        var xmlContent = generateIndividualXMLContent(result);
+        
+        zip.file(filename, xmlContent);
+        console.log('Added XML file:', filename, 'for Master ID:', masterId);
+    }
+
+    // Generate the zip file and download
+    zip.generateAsync({type: 'blob'}).then(function(content) {
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = 'master_id_xml_files_' + new Date().toISOString().split('T')[0] + '.zip';
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('XML zip file with', searchResults.length, 'individual files downloaded successfully');
+    }).catch(function(error) {
+        console.error('Error generating zip file:', error);
+        alert('Error generating XML files. Please try again.');
+    });
+}
+
+function generateIndividualXMLContent(item) {
+    var xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<BookOrder>\n';
+    xml += '  <MasterID>' + escapeXML(item['Master ID'] || '') + '</MasterID>\n';
+    xml += '  <ISBN>' + escapeXML(item['ISBN'] || '') + '</ISBN>\n';
+    xml += '  <Title>' + escapeXML(item['Title'] || '') + '</Title>\n';
+    xml += '  <TrimSize>' + escapeXML(item['Trim Size'] || '') + '</TrimSize>\n';
+    xml += '  <Paper>' + escapeXML(item['Paper'] || '') + '</Paper>\n';
+    xml += '  <Quantity>' + escapeXML(item['Quantity'] || '0') + '</Quantity>\n';
+    xml += '  <GeneratedDate>' + new Date().toISOString() + '</GeneratedDate>\n';
+    xml += '</BookOrder>\n';
+    
+    return xml;
+}
+
+function escapeXML(text) {
+    if (typeof text !== 'string') {
+        text = String(text);
+    }
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+function sanitizeFilename(filename) {
+    return filename
+        .replace(/[<>:"/\\|?*]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
 }
 
 function downloadPDF() {
@@ -372,7 +590,6 @@ function downloadPDF() {
 
     var yPos = 50;
 
-    // Add missing Master IDs section if any exist
     if (missingMasterIds.length > 0) {
         pdf.setFontSize(12);
         pdf.setFont(undefined, 'bold');
@@ -387,7 +604,6 @@ function downloadPDF() {
             if (i > 0) missingText += ', ';
             missingText += missingMasterIds[i];
             
-            // Check if we need to wrap to next line (roughly 80 characters per line)
             if (missingText.length > 80 * Math.floor(i / 10 + 1)) {
                 pdf.text(missingText.substring(missingText.lastIndexOf(',', missingText.length - 20) + 2), 20, yPos);
                 yPos += 6;
@@ -395,22 +611,19 @@ function downloadPDF() {
             }
         }
         
-        // Print remaining missing IDs
         if (missingText.length > 0) {
             pdf.text(missingText, 20, yPos);
             yPos += 6;
         }
         
-        yPos += 10; // Extra spacing before main results
+        yPos += 10;
         
-        // Check if we need a new page
         if (yPos > 250) {
             pdf.addPage();
             yPos = 20;
         }
     }
 
-    // Group results by paper type
     var groupedResults = {};
     for (var i = 0; i < searchResults.length; i++) {
         var result = searchResults[i];
@@ -547,6 +760,7 @@ function clearAll() {
     document.getElementById('resultsTableBody').innerHTML = '';
     document.getElementById('searchSummary').innerHTML = '';
     document.getElementById('downloadPdfBtn').disabled = true;
+    document.getElementById('downloadXmlBtn').disabled = true;
     
     clearLookup();
     
