@@ -346,6 +346,7 @@ function updateResultsDisplay() {
     var tbody = document.getElementById('resultsTableBody');
     tbody.innerHTML = '';
 
+    // Group results by paper type
     var groupedResults = {};
     for (var i = 0; i < searchResults.length; i++) {
         var result = searchResults[i];
@@ -356,10 +357,19 @@ function updateResultsDisplay() {
         groupedResults[paper].push(result);
     }
 
+    // Sort paper types alphabetically
     var paperTypes = Object.keys(groupedResults).sort();
+    
     for (var i = 0; i < paperTypes.length; i++) {
         var paperType = paperTypes[i];
         var items = groupedResults[paperType];
+        
+        // Sort items by Master ID alphabetically within each paper type
+        items.sort(function(a, b) {
+            var masterIdA = String(a['Master ID'] || '').toLowerCase();
+            var masterIdB = String(b['Master ID'] || '').toLowerCase();
+            return masterIdA.localeCompare(masterIdB);
+        });
         
         var headerRow = tbody.insertRow();
         headerRow.className = 'table-secondary';
@@ -624,6 +634,7 @@ function downloadPDF() {
         }
     }
 
+    // Group results by paper type
     var groupedResults = {};
     for (var i = 0; i < searchResults.length; i++) {
         var result = searchResults[i];
@@ -644,12 +655,21 @@ function downloadPDF() {
         quantity: { x: 175 }
     };
 
+    // Sort paper types alphabetically
     var paperTypes = Object.keys(groupedResults).sort();
     
     for (var groupIndex = 0; groupIndex < paperTypes.length; groupIndex++) {
         var paperType = paperTypes[groupIndex];
         var items = groupedResults[paperType];
-        console.log('Processing group ' + (groupIndex + 1) + ': ' + paperType + ' with ' + items.length + ' items');
+        
+        // Sort items by Master ID alphabetically within each paper type
+        items.sort(function(a, b) {
+            var masterIdA = String(a['Master ID'] || '').toLowerCase();
+            var masterIdB = String(b['Master ID'] || '').toLowerCase();
+            return masterIdA.localeCompare(masterIdB);
+        });
+        
+        console.log('Processing group ' + (groupIndex + 1) + ': ' + paperType + ' with ' + items.length + ' items (sorted by Master ID)');
 
         if (yPos > 250) {
             pdf.addPage();

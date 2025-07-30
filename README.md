@@ -1,10 +1,10 @@
 # Master ID Search & PDF/XML Generator
 
-A web application that searches for Master IDs in a JSON database and generates downloadable PDF reports and individual XML files with detailed product information. Features both single Master ID lookup and bulk CSV file processing with automatic grouping by paper type for PDFs and individual ISBN-named XML files.
+A web application that searches for Master IDs in a JSON database and generates downloadable PDF reports and individual XML files with detailed product information. Features both single Master ID lookup and bulk CSV file processing with automatic grouping by paper type and alphabetical sorting by Master ID for PDFs and individual ISBN-named XML files.
 
 ## Overview
 
-This application allows users to quickly lookup individual Master IDs or upload CSV files containing multiple Master IDs, automatically searches for matches in a JSON database, and generates professional PDF reports grouped by paper type or individual XML files named by ISBN. Missing Master IDs are clearly identified in both the interface and output files.
+This application allows users to quickly lookup individual Master IDs or upload CSV files containing multiple Master IDs, automatically searches for matches in a JSON database, and generates professional PDF reports grouped by paper type with Master IDs sorted alphabetically within each group, or individual XML files named by ISBN. Missing Master IDs are clearly identified in both the interface and output files.
 
 ## Features
 
@@ -12,8 +12,9 @@ This application allows users to quickly lookup individual Master IDs or upload 
 - **Bulk CSV Processing**: Upload CSV files with Master IDs in column D and quantities in column B
 - **Automatic JSON Database Loading**: Loads `masterID_paper.json` automatically from the same directory
 - **CSV File Upload**: Drag & drop or click to upload CSV files (.csv)
+- **Intelligent Sorting**: Results grouped by paper type with Master IDs sorted alphabetically within each group
 - **Dual Export Options**:
-  - **PDF Reports**: Results grouped by paper type for printing and organization
+  - **PDF Reports**: Results grouped by paper type with alphabetical Master ID sorting for printing and organization
   - **XML Files**: Individual XML files per item, named by ISBN for automated processing
 - **Missing ID Tracking**: Identifies and reports Master IDs not found in database
 - **Complete Audit Trail**: Both PDF and XML exports include comprehensive data
@@ -58,7 +59,8 @@ project-folder/
 #### Step 2: Upload & Process
 - Upload your CSV file using drag & drop or the file browser
 - The application automatically detects Master IDs in column D and quantities in column B
-- View the search results grouped by paper type with summary statistics
+- View the search results grouped by paper type with Master IDs sorted alphabetically within each group
+- Summary statistics show total searched, found, and missing counts
 
 #### Step 3: Choose Your Export Format
 
@@ -68,6 +70,7 @@ project-folder/
   - Summary with total searched, found, and missing counts
   - Missing Master IDs section (if any exist)
   - Results grouped by paper type with gray section headers
+  - **Master IDs sorted alphabetically within each paper type group**
   - Complete product details including print quantities
   - Professional formatting optimized for A4 printing
 
@@ -114,6 +117,7 @@ The CSV file should contain Master IDs in **column D** and print quantities in *
 - **Complete Audit Trail**: Shows both found results and missing Master IDs
 - **Missing Master IDs Section**: Listed at the top of PDF if any Master IDs weren't found
 - **Grouped Results**: Results organized by paper type with gray section headers
+- **Alphabetical Sorting**: Master IDs sorted alphabetically within each paper type group for easy reference
 - **Complete Information**: Shows Master ID, Title, Trim Size, Paper specifications, and print quantities
 - **Professional Formatting**: Clean headers, proper spacing, and page numbering
 - **Multi-page Support**: Automatically handles large datasets across multiple pages
@@ -158,9 +162,23 @@ The CSV file should contain Master IDs in **column D** and print quantities in *
 - **Results Summary**: Statistical overview of search results
 - **Missing ID Display**: Clear identification of Master IDs not found in database
 - **Grouped Display**: Results automatically organized by paper type on screen
+- **Alphabetical Ordering**: Master IDs sorted alphabetically within each paper type group
 - **Quantity Display**: Print quantities shown alongside product details
 - **Individual Controls**: Delete specific items or entire sections
 - **Dual Export Options**: Choose between PDF reports or XML files with proper button spacing
+
+## Sorting and Organization
+
+### Results Organization Hierarchy
+1. **Primary Grouping**: Results grouped by Paper Type (sorted alphabetically)
+2. **Secondary Sorting**: Master IDs sorted alphabetically within each paper type group
+3. **Consistent Ordering**: Same sorting applied to both screen display and PDF export
+
+### Sorting Features
+- **Case Insensitive**: Sorting ignores case differences (e.g., "abc123" comes before "XYZ789")
+- **Locale-aware**: Uses `localeCompare()` for proper string comparison
+- **Stable Sorting**: Maintains consistent order across refreshes and exports
+- **Visual Organization**: Easy to scan and locate specific Master IDs within paper type groups
 
 ## Technical Details
 
@@ -200,6 +218,7 @@ The application includes comprehensive error handling for:
 - **Memory Efficient**: Optimized for large datasets
 - **Fast Search**: Efficient matching algorithm for quick results
 - **Optimized Exports**: Both PDF and XML generation optimized for performance
+- **Smart Sorting**: Efficient alphabetical sorting algorithms with minimal performance impact
 
 ## Troubleshooting
 
@@ -226,6 +245,11 @@ The application includes comprehensive error handling for:
 - **XML Issues**: Verify JSZip library loads properly; refresh page if needed
 - **Large Datasets**: Try with smaller datasets if memory issues occur
 
+#### Sorting Issues
+- **Unexpected Order**: Refresh the page if sorting appears inconsistent
+- **Mixed Case Results**: Sorting is case-insensitive by design for better organization
+- **Performance**: Large datasets (10,000+ items) may take a moment to sort
+
 ## Keyboard Shortcuts
 
 - **Enter Key**: Press Enter in the single lookup field to search immediately
@@ -243,6 +267,15 @@ The application includes comprehensive error handling for:
 - **Efficient Parsing**: Optimized CSV processing for large files
 - **Memory Management**: Smart handling of large datasets
 - **Export Optimization**: Both PDF and XML generation optimized for speed
+- **Sorting Performance**: Efficient alphabetical sorting with minimal overhead
+
+## Recent Updates
+
+### Version 1.1 - Alphabetical Sorting
+- **Enhanced Organization**: Added alphabetical sorting of Master IDs within paper type groups
+- **Consistent Display**: Same sorting applied to both screen results and PDF exports
+- **Improved Usability**: Easier to locate specific Master IDs within large datasets
+- **Performance Optimized**: Efficient sorting algorithms with minimal impact on processing speed
 
 ## License
 
