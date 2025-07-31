@@ -8,7 +8,32 @@ document.addEventListener('DOMContentLoaded', function() {
     loadJsonData();
     setupEventListeners();
     setupConfirmationModal();
+    initializeDatePicker();
 });
+
+function initializeDatePicker() {
+    // Set today's date as default in YYYY-MM-DD format (HTML5 date input format)
+    var today = new Date();
+    var dateString = today.getFullYear() + '-' + 
+                    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(today.getDate()).padStart(2, '0');
+    
+    document.getElementById('workDatePicker').value = dateString;
+}
+
+function formatDateInput(input) {
+    // Not needed for HTML5 date input
+}
+
+function parseInputDate(dateString) {
+    // HTML5 date input returns YYYY-MM-DD format
+    if (!dateString) return null;
+    return new Date(dateString);
+}
+
+function updateDateDisplay() {
+    // Not needed for HTML5 date input
+}
 
 function setupConfirmationModal() {
     var confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -304,6 +329,9 @@ function displayResults(searchedIds, foundIds) {
     document.getElementById('resultsCard').style.display = 'block';
     document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
     document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
+    
+// Hide the CSV loading message once results are displayed
+document.getElementById('uploadStatus').innerHTML = '';
 }
 
 function displayResultsSummary(totalSearched, totalFound, notFound) {
@@ -486,96 +514,20 @@ function deleteResultRow(masterId) {
     });
 }
 
-function downloadXML() {
-    if (searchResults.length === 0) {
-        alert('No results to download.');
-        return;
-    }
-
-    console.log('Generating individual XML files for', searchResults.length, 'results');
-
-    // Check if JSZip is available
-    if (typeof JSZip === 'undefined') {
-        alert('JSZip library not loaded. Please refresh the page and try again.');
-        return;
-    }
-
-    // Create JSZip instance
-    var zip = new JSZip();
-
-    // Generate individual XML file for each result
-    for (var i = 0; i < searchResults.length; i++) {
-        var result = searchResults[i];
-        
-        // Use ISBN as filename, fallback to Master ID if ISBN is missing
-        var isbn = String(result['ISBN'] || '').trim();
-        var masterId = String(result['Master ID'] || '').trim();
-        
-        var filename;
-        if (isbn && isbn !== '' && isbn.toLowerCase() !== 'n/a') {
-            filename = sanitizeFilename(isbn) + '.xml';
-        } else {
-            // Fallback to Master ID if ISBN is not available
-            filename = sanitizeFilename(masterId) + '_no_isbn.xml';
-        }
-        
-        var xmlContent = generateIndividualXMLContent(result);
-        
-        zip.file(filename, xmlContent);
-        console.log('Added XML file:', filename, 'for Master ID:', masterId);
-    }
-
-    // Generate the zip file and download
-    zip.generateAsync({type: 'blob'}).then(function(content) {
-        var link = document.createElement('a');
-        link.href = URL.createObjectURL(content);
-        link.download = 'master_id_xml_files_' + new Date().toISOString().split('T')[0] + '.zip';
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('XML zip file with', searchResults.length, 'individual files downloaded successfully');
-    }).catch(function(error) {
-        console.error('Error generating zip file:', error);
-        alert('Error generating XML files. Please try again.');
-    });
-}
-
-function generateIndividualXMLContent(item) {
-    var xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    xml += '<BookOrder>\n';
-    xml += '  <MasterID>' + escapeXML(item['Master ID'] || '') + '</MasterID>\n';
-    xml += '  <ISBN>' + escapeXML(item['ISBN'] || '') + '</ISBN>\n';
-    xml += '  <Title>' + escapeXML(item['Title'] || '') + '</Title>\n';
-    xml += '  <TrimSize>' + escapeXML(item['Trim Size'] || '') + '</TrimSize>\n';
-    xml += '  <Paper>' + escapeXML(item['Paper'] || '') + '</Paper>\n';
-    xml += '  <Quantity>' + escapeXML(item['Quantity'] || '0') + '</Quantity>\n';
-    xml += '  <GeneratedDate>' + new Date().toISOString() + '</GeneratedDate>\n';
-    xml += '</BookOrder>\n';
+function formatDateForPDF(dateString) {
+    if (!dateString) return '';
     
-    return xml;
-}
-
-function escapeXML(text) {
-    if (typeof text !== 'string') {
-        text = String(text);
-    }
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;');
-}
-
-function sanitizeFilename(filename) {
-    return filename
-        .replace(/[<>:"/\\|?*]/g, '_')
-        .replace(/\s+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '');
+    // HTML5 date input returns YYYY-MM-DD format
+    var date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) return '';
+    
+    var day = String(date.getDate()).padStart(2, '0');
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var year = String(date.getFullYear()).slice(-2); // Get last 2 digits of year
+    
+    return day + '/' + month + '/' + year;
 }
 
 function downloadPDF() {
@@ -589,16 +541,27 @@ function downloadPDF() {
 
     console.log('Generating grouped PDF with', searchResults.length, 'results');
 
+    // Get the selected work date
+    var workDateInput = document.getElementById('workDatePicker');
+    var workDate = workDateInput.value;
+    var formattedWorkDate = formatDateForPDF(workDate);
+
     pdf.setFontSize(14);
     pdf.setFont(undefined, 'bold');
     pdf.text('Master ID Search Results - Grouped by Paper Type', 20, 20);
 
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'normal');
-    pdf.text('Generated: ' + new Date().toLocaleString(), 20, 30);
-    pdf.text('Results Found: ' + searchResults.length, 20, 36);
-
-    var yPos = 50;
+    // pdf.setFontSize(10);
+    // pdf.setFont(undefined, 'normal');
+    //pdf.text('Generated: ' + new Date().toLocaleString(), 20, 30);
+    //pdf.text('Results Found: ' + searchResults.length, 20, 36);
+    
+    // Add work date to PDF header
+    if (formattedWorkDate) {
+        pdf.text('Missing List Date: ' + formattedWorkDate, 20, 36);
+        var yPos = 56;
+    } else {
+        var yPos = 50;
+    }
 
     if (missingMasterIds.length > 0) {
         pdf.setFontSize(12);
@@ -761,6 +724,98 @@ function downloadPDF() {
     var fileName = 'master_id_results_grouped_by_paper_' + new Date().toISOString().split('T')[0] + '.pdf';
     console.log('Saving PDF as:', fileName);
     pdf.save(fileName);
+}
+
+function downloadXML() {
+    if (searchResults.length === 0) {
+        alert('No results to download.');
+        return;
+    }
+
+    console.log('Generating individual XML files for', searchResults.length, 'results');
+
+    // Check if JSZip is available
+    if (typeof JSZip === 'undefined') {
+        alert('JSZip library not loaded. Please refresh the page and try again.');
+        return;
+    }
+
+    // Create JSZip instance
+    var zip = new JSZip();
+
+    // Generate individual XML file for each result
+    for (var i = 0; i < searchResults.length; i++) {
+        var result = searchResults[i];
+        
+        // Use ISBN as filename, fallback to Master ID if ISBN is missing
+        var isbn = String(result['ISBN'] || '').trim();
+        var masterId = String(result['Master ID'] || '').trim();
+        
+        var filename;
+        if (isbn && isbn !== '' && isbn.toLowerCase() !== 'n/a') {
+            filename = sanitizeFilename(isbn) + '.xml';
+        } else {
+            // Fallback to Master ID if ISBN is not available
+            filename = sanitizeFilename(masterId) + '_no_isbn.xml';
+        }
+        
+        var xmlContent = generateIndividualXMLContent(result);
+        
+        zip.file(filename, xmlContent);
+        console.log('Added XML file:', filename, 'for Master ID:', masterId);
+    }
+
+    // Generate the zip file and download
+    zip.generateAsync({type: 'blob'}).then(function(content) {
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = 'master_id_xml_files_' + new Date().toISOString().split('T')[0] + '.zip';
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('XML zip file with', searchResults.length, 'individual files downloaded successfully');
+    }).catch(function(error) {
+        console.error('Error generating zip file:', error);
+        alert('Error generating XML files. Please try again.');
+    });
+}
+
+function generateIndividualXMLContent(item) {
+    var xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<BookOrder>\n';
+    xml += '  <MasterID>' + escapeXML(item['Master ID'] || '') + '</MasterID>\n';
+    xml += '  <ISBN>' + escapeXML(item['ISBN'] || '') + '</ISBN>\n';
+    xml += '  <Title>' + escapeXML(item['Title'] || '') + '</Title>\n';
+    xml += '  <TrimSize>' + escapeXML(item['Trim Size'] || '') + '</TrimSize>\n';
+    xml += '  <Paper>' + escapeXML(item['Paper'] || '') + '</Paper>\n';
+    xml += '  <Quantity>' + escapeXML(item['Quantity'] || '0') + '</Quantity>\n';
+    xml += '  <GeneratedDate>' + new Date().toISOString() + '</GeneratedDate>\n';
+    xml += '</BookOrder>\n';
+    
+    return xml;
+}
+
+function escapeXML(text) {
+    if (typeof text !== 'string') {
+        text = String(text);
+    }
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+function sanitizeFilename(filename) {
+    return filename
+        .replace(/[<>:"/\\|?*]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
 }
 
 function clearLookup() {
