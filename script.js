@@ -2,38 +2,14 @@ var jsonData = [];
 var csvData = [];
 var searchResults = [];
 var missingMasterIds = [];
+var workDate = '';
 var pendingDeleteAction = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadJsonData();
     setupEventListeners();
     setupConfirmationModal();
-    initializeDatePicker();
 });
-
-function initializeDatePicker() {
-    // Set today's date as default in YYYY-MM-DD format (HTML5 date input format)
-    var today = new Date();
-    var dateString = today.getFullYear() + '-' + 
-                    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                    String(today.getDate()).padStart(2, '0');
-    
-    document.getElementById('workDatePicker').value = dateString;
-}
-
-function formatDateInput(input) {
-    // Not needed for HTML5 date input
-}
-
-function parseInputDate(dateString) {
-    // HTML5 date input returns YYYY-MM-DD format
-    if (!dateString) return null;
-    return new Date(dateString);
-}
-
-function updateDateDisplay() {
-    // Not needed for HTML5 date input
-}
 
 function setupConfirmationModal() {
     var confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -160,7 +136,7 @@ function handleCsvFile(file) {
                 return;
             }
 
-            showStatus('CSV file loaded successfully! Found ' + (csvData.length - 1) + ' data rows. Processing Master IDs from column D and quantities from column B...', 'success');
+            showStatus('CSV file loaded successfully! Found ' + (csvData.length - 1) + ' data rows. Processing Master IDs from column D, quantities from column B, and work date from column C...', 'success');
             setTimeout(processData, 1000);
             
         } catch (error) {
@@ -250,6 +226,7 @@ function processData() {
 
     var masterIds = [];
     var quantities = [];
+    workDate = ''; // Reset work date
     
     console.log('Processing CSV data. Total rows:', csvData.length);
     if (csvData.length > 1) {
@@ -257,14 +234,21 @@ function processData() {
     }
     
     for (var i = 1; i < csvData.length; i++) {
-        var masterIdValue = csvData[i][3]; // Column D = index 3
-        var quantityValue = csvData[i][1]; // Column B = index 1
+        var masterIdValue = csvData[i][3]; // Column D = index 3 (Master ID)
+        var quantityValue = csvData[i][1]; // Column B = index 1 (Quantity)
+        var dateValue = csvData[i][2]; // Column C = index 2 (Date)
         
-        console.log('Row ' + i + ': Master ID =', masterIdValue, ', Quantity =', quantityValue);
+        console.log('Row ' + i + ': Master ID =', masterIdValue, ', Quantity =', quantityValue, ', Date =', dateValue);
+        
+        // Extract work date from first valid row (assuming all rows have same date)
+        if (!workDate && dateValue && String(dateValue).trim() !== '' && String(dateValue).trim().toLowerCase() !== 'date') {
+            workDate = String(dateValue).trim();
+            console.log('Work date extracted:', workDate);
+        }
         
         if (masterIdValue && String(masterIdValue).trim() !== '') {
             var masterId = String(masterIdValue).trim();
-            if (masterId.toLowerCase() !== 'master id' && masterId.toLowerCase() !== 'masterid') {
+            if (masterId.toLowerCase() !== 'master id' && masterId.toLowerCase() !== 'masterid' && masterId.toLowerCase() !== 'master') {
                 masterIds.push(masterId);
                 quantities.push(String(quantityValue || '0').trim());
                 console.log('Added: Master ID =', masterId, ', Quantity =', quantityValue);
@@ -274,6 +258,7 @@ function processData() {
 
     console.log('Total Master IDs processed:', masterIds.length);
     console.log('Quantities array:', quantities);
+    console.log('Work date from CSV:', workDate);
 
     searchResults = [];
     missingMasterIds = [];
@@ -330,8 +315,8 @@ function displayResults(searchedIds, foundIds) {
     document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
     document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
     
-// Hide the CSV loading message once results are displayed
-document.getElementById('uploadStatus').innerHTML = '';
+    // Hide the CSV loading message once results are displayed
+    document.getElementById('uploadStatus').innerHTML = '';
 }
 
 function displayResultsSummary(totalSearched, totalFound, notFound) {
@@ -517,11 +502,37 @@ function deleteResultRow(masterId) {
 function formatDateForPDF(dateString) {
     if (!dateString) return '';
     
-    // HTML5 date input returns YYYY-MM-DD format
-    var date = new Date(dateString);
+    // Try to parse various date formats from CSV
+    var date = null;
+    
+    // Check if it's already in DD/MM/YYYY format
+    if (dateString.includes('/')) {
+        var parts = dateString.split('/');
+        if (parts.length === 3) {
+            // Assume DD/MM/YYYY format
+            var day = parseInt(parts[0], 10);
+            var month = parseInt(parts[1], 10);
+            var year = parseInt(parts[2], 10);
+            
+            // Handle 2-digit years
+            if (year < 100) {
+                year += (year < 50) ? 2000 : 1900;
+            }
+            
+            if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                date = new Date(year, month - 1, day);
+            }
+        }
+    } else if (dateString.includes('-')) {
+        // Try parsing YYYY-MM-DD or DD-MM-YYYY format
+        date = new Date(dateString);
+    } else {
+        // Try direct parsing
+        date = new Date(dateString);
+    }
     
     // Check if date is valid
-    if (isNaN(date.getTime())) return '';
+    if (!date || isNaN(date.getTime())) return dateString; // Return original if can't parse
     
     var day = String(date.getDate()).padStart(2, '0');
     var month = String(date.getMonth() + 1).padStart(2, '0');
@@ -541,23 +552,21 @@ function downloadPDF() {
 
     console.log('Generating grouped PDF with', searchResults.length, 'results');
 
-    // Get the selected work date
-    var workDateInput = document.getElementById('workDatePicker');
-    var workDate = workDateInput.value;
+    // Use the work date from CSV
     var formattedWorkDate = formatDateForPDF(workDate);
 
     pdf.setFontSize(14);
     pdf.setFont(undefined, 'bold');
     pdf.text('Master ID Search Results - Grouped by Paper Type', 20, 20);
 
-    // pdf.setFontSize(10);
-    // pdf.setFont(undefined, 'normal');
-    //pdf.text('Generated: ' + new Date().toLocaleString(), 20, 30);
-    //pdf.text('Results Found: ' + searchResults.length, 20, 36);
+    pdf.setFontSize(10);
+    pdf.setFont(undefined, 'normal');
+    pdf.text('Generated: ' + new Date().toLocaleString(), 20, 30);
+    pdf.text('Results Found: ' + searchResults.length, 20, 36);
     
     // Add work date to PDF header
     if (formattedWorkDate) {
-        pdf.text('Missing List Date: ' + formattedWorkDate, 20, 36);
+        pdf.text('Work Date: ' + formattedWorkDate, 20, 42);
         var yPos = 56;
     } else {
         var yPos = 50;
@@ -828,6 +837,7 @@ function clearAll() {
     csvData = [];
     searchResults = [];
     missingMasterIds = [];
+    workDate = '';
     
     document.getElementById('csvFileInput').value = '';
     document.getElementById('uploadStatus').innerHTML = '';
