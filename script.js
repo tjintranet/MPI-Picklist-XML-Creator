@@ -213,6 +213,88 @@ function lookupSingleMasterId() {
     }
 }
 
+// Helper function to format work date from CSV Column C for WTL filename
+function formatWorkDateForWTL(workDateString) {
+    if (!workDateString) {
+        // Fallback to today's date if no work date found
+        const today = new Date();
+        const day = String(today.getDate()).padStart(2, '0');
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = String(today.getFullYear());
+        return `${day}-${month}-${year}`;
+    }
+    
+    // Clean the input string
+    const cleanDateStr = String(workDateString).trim();
+    
+    // Try to parse various date formats from CSV Column C
+    let day, month, year;
+    
+    if (cleanDateStr.includes('/')) {
+        // Handle DD/MM/YYYY, MM/DD/YYYY, DD/MM/YY formats
+        const parts = cleanDateStr.split('/');
+        if (parts.length === 3) {
+            // Assume DD/MM/YYYY format (most common in your context)
+            day = parts[0].padStart(2, '0');
+            month = parts[1].padStart(2, '0');
+            year = parts[2];
+            
+            // Handle 2-digit years
+            if (year.length === 2) {
+                year = parseInt(year) < 50 ? '20' + year : '19' + year;
+            } else if (year.length === 4) {
+                year = year; // Keep 4-digit year
+            }
+        }
+    } else if (cleanDateStr.includes('-')) {
+        // Handle YYYY-MM-DD, DD-MM-YYYY, DD-MM-YY formats
+        const parts = cleanDateStr.split('-');
+        if (parts.length === 3) {
+            if (parts[0].length === 4) {
+                // YYYY-MM-DD format
+                year = parts[0];
+                month = parts[1].padStart(2, '0');
+                day = parts[2].padStart(2, '0');
+            } else {
+                // DD-MM-YYYY or DD-MM-YY format
+                day = parts[0].padStart(2, '0');
+                month = parts[1].padStart(2, '0');
+                year = parts[2];
+                if (year.length === 2) {
+                    year = parseInt(year) < 50 ? '20' + year : '19' + year;
+                }
+            }
+        }
+    } else {
+        // Try to parse as a standard date string
+        const date = new Date(cleanDateStr);
+        if (!isNaN(date.getTime())) {
+            day = String(date.getDate()).padStart(2, '0');
+            month = String(date.getMonth() + 1).padStart(2, '0');
+            year = String(date.getFullYear());
+        } else {
+            // If all else fails, extract numbers and format as DD-MM-YYYY
+            const numbers = cleanDateStr.replace(/[^0-9]/g, '');
+            if (numbers.length >= 6) {
+                day = numbers.slice(0, 2);
+                month = numbers.slice(2, 4);
+                year = numbers.slice(4);
+                if (year.length === 2) {
+                    year = parseInt(year) < 50 ? '20' + year : '19' + year;
+                }
+            } else {
+                // Ultimate fallback to today's date
+                const today = new Date();
+                day = String(today.getDate()).padStart(2, '0');
+                month = String(today.getMonth() + 1).padStart(2, '0');
+                year = String(today.getFullYear());
+            }
+        }
+    }
+    
+    return `${day}-${month}-${year}`;
+}
+
 function processData() {
     if (jsonData.length === 0) {
         alert('JSON database not loaded. Please refresh the page.');
@@ -730,8 +812,11 @@ function downloadPDF() {
         pdf.text('Page ' + i + ' of ' + pageCount, 175, 287);
     }
 
-    var fileName = 'master_id_results_grouped_by_paper_' + new Date().toISOString().split('T')[0] + '.pdf';
+    // Use WTL filename format with DD-MM-YYYY
+    var fileName = '1up_WTL_' + formatWorkDateForWTL(workDate) + '.pdf';
     console.log('Saving PDF as:', fileName);
+    console.log('Work date extracted from CSV Column C:', workDate);
+    console.log('Formatted for filename:', formatWorkDateForWTL(workDate));
     pdf.save(fileName);
 }
 
@@ -774,18 +859,22 @@ function downloadXML() {
         console.log('Added XML file:', filename, 'for Master ID:', masterId);
     }
 
-    // Generate the zip file and download
+    // Generate the zip file and download with WTL filename
     zip.generateAsync({type: 'blob'}).then(function(content) {
         var link = document.createElement('a');
         link.href = URL.createObjectURL(content);
-        link.download = 'master_id_xml_files_' + new Date().toISOString().split('T')[0] + '.zip';
+        
+        // Use WTL filename format with DD-MM-YYYY
+        link.download = '1up_WTL_' + formatWorkDateForWTL(workDate) + '.zip';
         link.style.display = 'none';
         
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        console.log('XML zip file with', searchResults.length, 'individual files downloaded successfully');
+        console.log('XML zip file with WTL naming downloaded successfully');
+        console.log('Filename:', '1up_WTL_' + formatWorkDateForWTL(workDate) + '.zip');
+        console.log('Work date from CSV:', workDate);
     }).catch(function(error) {
         console.error('Error generating zip file:', error);
         alert('Error generating XML files. Please try again.');
