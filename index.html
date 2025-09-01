@@ -4,134 +4,396 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPI - Picklist & XML Creator</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-        <!-- Favicon -->
+    <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     
     <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            background-color: #0d6efd;
+            color: white;
+            border-bottom: none;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 1.5rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .page-title {
+            background-color: #0d6efd;
+            color: white;
+            padding: 2rem 1.5rem;
+            margin: 0;
+            font-weight: 600;
+            font-size: 2rem;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .upload-card .card-header {
+            background-color: #f8f9fa;
+            color: #495057;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .results-card .card-header {
+            background-color: #f8f9fa;
+            color: #495057;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .btn {
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #198754;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #157347;
+            color: white;
+        }
+
+        .btn-info {
+            background-color: #0dcaf0;
+            color: #000;
+        }
+
+        .btn-info:hover {
+            background-color: #31d2f2;
+            color: #000;
+        }
+
+        .btn-outline-secondary {
+            background-color: transparent;
+            border: 1px solid #6c757d;
+            color: #6c757d;
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: #6c757d;
+            color: white;
+            border-color: #6c757d;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #bb2d3b;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5c636a;
+            color: white;
+        }
+
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid #ced4da;
+            padding: 0.6rem 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
         .results-table {
             max-height: 400px;
             overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
         }
+
         .table th {
             position: sticky;
             top: 0;
             z-index: 10;
             white-space: nowrap;
+            background-color: #495057;
+            color: white;
+            border: none;
+            font-weight: 600;
         }
+
         .table td {
             white-space: nowrap;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: middle;
         }
+
+        .table-striped > tbody > tr:nth-of-type(odd) > td {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+        .table-secondary {
+            background-color: #e9ecef;
+            font-weight: 600;
+        }
+
         .delete-btn {
             background: none;
             border: none;
             color: #dc3545;
             font-size: 16px;
             cursor: pointer;
-            padding: 2px 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
         }
+
         .delete-btn:hover {
-            color: #c82333;
-            background-color: #f8f9fa;
-            border-radius: 3px;
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #bb2d3b;
         }
+
         .delete-section-btn {
             background: none;
             border: none;
             color: #dc3545;
             font-size: 14px;
             cursor: pointer;
-            padding: 2px 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
             float: right;
             margin-left: 10px;
+            transition: all 0.2s ease;
         }
+
         .delete-section-btn:hover {
-            color: #c82333;
-            background-color: rgba(248, 249, 250, 0.8);
-            border-radius: 3px;
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #bb2d3b;
+        }
+
+        .result-box {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .result-box:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-box.found {
+            border-color: #198754;
+            background-color: rgba(25, 135, 84, 0.05);
+        }
+
+        .result-box.not-found {
+            border-color: #ffc107;
+            background-color: rgba(255, 193, 7, 0.05);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .status-found {
+            background-color: rgba(25, 135, 84, 0.1);
+            color: #198754;
+            border: 1px solid rgba(25, 135, 84, 0.2);
+        }
+
+        .status-not-found {
+            background-color: rgba(255, 193, 7, 0.1);
+            color: #f57c00;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .alert {
+            border-radius: 8px;
+            border: none;
+            padding: 1rem;
+        }
+
+        .alert-info {
+            background-color: rgba(13, 202, 240, 0.1);
+            color: #055160;
+            border-left: 4px solid #0dcaf0;
+        }
+
+        .alert-success {
+            background-color: rgba(25, 135, 84, 0.1);
+            color: #0a3622;
+            border-left: 4px solid #198754;
+        }
+
+        .alert-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            color: #664d03;
+            border-left: 4px solid #ffc107;
+        }
+
+        .alert-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #58151c;
+            border-left: 4px solid #dc3545;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-footer {
+            border-radius: 0 0 12px 12px;
+        }
+
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 1.5rem;
+                padding: 1.5rem;
+            }
+            
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-12">
-                <h1 class="text-center mb-4">MPI - Picklist & XML Creator</h1>
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Quick Lookup - Single Master Order ID</h5>
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-xl-10">
+                <div class="card shadow">
+                    <div class="page-title">
+                        MPI - Picklist & XML Creator
                     </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <div class="input-group">
-                                    <input type="text" id="singleMasterIdInput" class="form-control" placeholder="Enter Master Order ID" maxlength="20">
-                                    <button id="lookupBtn" class="btn btn-primary">Lookup</button>
-                                </div>
+                    
+                    <div class="card-body p-4">
+                        <div class="card upload-card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Upload CSV File</h5>
+                                <button id="clearAllBtn" class="btn btn-outline-secondary btn-sm">Clear All</button>
                             </div>
-                            <div class="col-md-4">
-                                <button id="clearLookupBtn" class="btn btn-outline-secondary">Clear</button>
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <div class="input-group">
+                                            <input type="file" id="csvFileInput" class="form-control" accept=".csv">
+                                        </div>
+                                        <small class="text-muted">CSV file should contain Master Order IDs in column D, quantities in column B, dates in column C</small>
+                                    </div>
+                                </div>
+                                <div id="uploadStatus" class="mt-3"></div>
                             </div>
                         </div>
-                        <div id="singleLookupResult" class="mt-3"></div>
-                    </div>
-                </div>
 
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Upload CSV File</h5>
-                        <button id="clearAllBtn" class="btn btn-outline-secondary btn-sm">Clear All</button>
-                    </div>
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <div class="input-group">
-                                    <input type="file" id="csvFileInput" class="form-control" accept=".csv">
-                                    <button id="uploadBtn" class="btn btn-primary" disabled>
-                                        <i class="bi bi-upload me-1"></i>Process CSV
+                        <div class="card results-card" id="resultsCard" style="display: none;">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Search Results</h5>
+                                <div class="d-flex gap-2">
+                                    <button id="downloadPdfBtn" class="btn btn-success" disabled>
+                                        Download PDF
+                                    </button>
+                                    <button id="downloadXmlBtn" class="btn btn-info" disabled>
+                                        Download XML
                                     </button>
                                 </div>
-                                <small class="text-muted">CSV file should contain Master Order IDs in column D, quantities in column B, dates in column C</small>
                             </div>
-                        </div>
-                        <div id="uploadStatus" class="mt-3"></div>
-                    </div>
-                </div>
-
-                <div class="card mb-4" id="resultsCard" style="display: none;">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Search Results</h5>
-                        <div class="d-flex gap-2">
-                            <button id="downloadPdfBtn" class="btn btn-success" disabled>
-                                <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
-                            </button>
-                            <button id="downloadXmlBtn" class="btn btn-info" disabled>
-                                <i class="bi bi-file-earmark-code me-1"></i>Download XML
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="searchSummary" class="mb-3"></div>
-                        <div class="results-table">
-                            <table class="table table-striped" id="resultsTable">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th scope="col">Master Order ID</th>
-                                        <th scope="col">Title</th>
-                                        <th scope="col">Trim Size</th>
-                                        <th scope="col">Paper</th>
-                                        <th scope="col">Quantity</th>
-                                        <th scope="col">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="resultsTableBody"></tbody>
-                            </table>
+                            <div class="card-body">
+                                <div id="searchSummary" class="mb-3"></div>
+                                <div class="results-table">
+                                    <table class="table table-striped" id="resultsTable">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Master Order ID</th>
+                                                <th scope="col">Title</th>
+                                                <th scope="col">Trim Size</th>
+                                                <th scope="col">Paper</th>
+                                                <th scope="col">Quantity</th>
+                                                <th scope="col">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="resultsTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -145,30 +407,29 @@
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="confirmationModalLabel">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Deletion
+                        Confirm Deletion
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p id="confirmationMessage" class="mb-3"></p>
                     <div class="alert alert-warning d-flex align-items-center mb-0">
-                        <i class="bi bi-info-circle-fill me-2"></i>
                         <small>This action cannot be undone.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle me-1"></i>Cancel
+                        Cancel
                     </button>
                     <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
-                        <i class="bi bi-trash me-1"></i>Delete
+                        Delete
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

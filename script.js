@@ -50,27 +50,12 @@ function showConfirmationModal(message, deleteAction) {
 
 function setupEventListeners() {
     const csvFileInput = document.getElementById('csvFileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
     
     csvFileInput.addEventListener('change', handleCsvFileSelect);
-    uploadBtn.addEventListener('click', () => {
-        const file = csvFileInput.files[0];
-        if (file) {
-            handleCsvFile(file);
-        }
-    });
-
+    
     document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
     document.getElementById('downloadXmlBtn').addEventListener('click', downloadXML);
     document.getElementById('clearAllBtn').addEventListener('click', clearAll);
-    document.getElementById('lookupBtn').addEventListener('click', lookupSingleMasterId);
-    document.getElementById('clearLookupBtn').addEventListener('click', clearLookup);
-    
-    document.getElementById('singleMasterIdInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            lookupSingleMasterId();
-        }
-    });
 }
 
 function loadJsonData() {
@@ -87,17 +72,17 @@ function loadJsonData() {
         })
         .catch(error => {
             console.error('Error loading JSON:', error);
-            alert('Error loading JSON database. Make sure "data.json" is in the same directory as this HTML file.');
+            showStatus('Error loading JSON database. Make sure "data.json" is in the same directory as this HTML file.', 'danger');
         });
 }
 
 function handleCsvFileSelect(e) {
-    const uploadBtn = document.getElementById('uploadBtn');
     if (e.target.files.length > 0) {
-        uploadBtn.disabled = false;
-        showStatus(`CSV file "${e.target.files[0].name}" selected. Click "Process CSV" to continue.`, 'info');
+        const file = e.target.files[0];
+        showStatus(`CSV file "${file.name}" selected. Processing...`, 'info');
+        // Process immediately after selection
+        setTimeout(() => handleCsvFile(file), 500);
     } else {
-        uploadBtn.disabled = true;
         document.getElementById('uploadStatus').innerHTML = '';
     }
 }
@@ -151,83 +136,6 @@ function parseCSVLine(line) {
     }
     cells.push(current.trim());
     return cells;
-}
-
-function lookupSingleMasterId() {
-    const input = document.getElementById('singleMasterIdInput');
-    const resultDiv = document.getElementById('singleLookupResult');
-    const masterId = input.value.trim();
-    
-    if (!masterId) {
-        resultDiv.innerHTML = '<div class="alert alert-warning">Please enter a Master Order ID to search.</div>';
-        return;
-    }
-    
-    if (jsonData.length === 0) {
-        resultDiv.innerHTML = '<div class="alert alert-danger">JSON database not loaded. Please refresh the page.</div>';
-        return;
-    }
-    
-    const result = findByMasterId(masterId);
-    
-    if (result) {
-        const trimSize = formatTrimSize(result[FIELD_MAP.trimHeight], result[FIELD_MAP.trimWidth]);
-        const html = `
-            <div class="border rounded p-3" style="background-color: #f8f9fa;">
-                <div class="d-flex align-items-center mb-2">
-                    <span class="text-success me-2">Found</span>
-                    <strong>Master Order ID Found</strong>
-                </div>
-                <div class="row g-2">
-                    <div class="col-6 col-md-3">
-                        <small class="text-muted">Master Order ID:</small><br>
-                        <span class="fw-bold">${result[FIELD_MAP.masterId]}</span>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <small class="text-muted">ISBN:</small><br>
-                        <span>${result[FIELD_MAP.isbn] || 'N/A'}</span>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <small class="text-muted">Trim Size:</small><br>
-                        <span>${trimSize}</span>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <small class="text-muted">Paper:</small><br>
-                        <span class="fw-bold">${result[FIELD_MAP.paperDesc] || 'N/A'}</span>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col-12">
-                        <small class="text-muted">Title:</small><br>
-                        <span class="fw-bold">${result[FIELD_MAP.title] || 'N/A'}</span>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col-4">
-                        <small class="text-muted">Bind Style:</small><br>
-                        <span>${result[FIELD_MAP.bindStyle] || 'N/A'}</span>
-                    </div>
-                    <div class="col-4">
-                        <small class="text-muted">Extent:</small><br>
-                        <span>${result[FIELD_MAP.extent] || 'N/A'}</span>
-                    </div>
-                    <div class="col-4">
-                        <small class="text-muted">Status:</small><br>
-                        <span>${result[FIELD_MAP.status] || 'N/A'}</span>
-                    </div>
-                </div>
-            </div>`;
-        resultDiv.innerHTML = html;
-    } else {
-        const html = `
-            <div class="border rounded p-2" style="background-color: #fff3cd;">
-                <div class="d-flex align-items-center">
-                    <span class="text-warning me-2">Not Found</span>
-                    <span><strong>Master Order ID "${masterId}" was not found in the database.</strong></span>
-                </div>
-            </div>`;
-        resultDiv.innerHTML = html;
-    }
 }
 
 function findByMasterId(masterId) {
@@ -309,12 +217,12 @@ function formatWorkDateForWTL(workDateString) {
 
 function processData() {
     if (jsonData.length === 0) {
-        alert('JSON database not loaded. Please refresh the page.');
+        showStatus('JSON database not loaded. Please refresh the page.', 'danger');
         return;
     }
 
     if (csvData.length === 0) {
-        alert('Please upload a CSV file first.');
+        showStatus('Please upload a CSV file first.', 'warning');
         return;
     }
 
@@ -585,7 +493,7 @@ function formatDateForPDF(dateString) {
 
 function downloadPDF() {
     if (searchResults.length === 0) {
-        alert('No results to download.');
+        showStatus('No results to download.', 'warning');
         return;
     }
 
@@ -771,14 +679,14 @@ function downloadPDF() {
 
 function downloadXML() {
     if (searchResults.length === 0) {
-        alert('No results to download.');
+        showStatus('No results to download.', 'warning');
         return;
     }
 
     console.log('Generating individual XML files for', searchResults.length, 'results');
 
     if (typeof JSZip === 'undefined') {
-        alert('JSZip library not loaded. Please refresh the page and try again.');
+        showStatus('JSZip library not loaded. Please refresh the page and try again.', 'danger');
         return;
     }
 
@@ -813,7 +721,7 @@ function downloadXML() {
         console.log('XML zip file downloaded successfully');
     }).catch(function(error) {
         console.error('Error generating zip file:', error);
-        alert('Error generating XML files. Please try again.');
+        showStatus('Error generating XML files. Please try again.', 'danger');
     });
 }
 
@@ -856,12 +764,6 @@ function sanitizeFilename(filename) {
         .replace(/^_|_$/g, '');
 }
 
-function clearLookup() {
-    document.getElementById('singleMasterIdInput').value = '';
-    document.getElementById('singleLookupResult').innerHTML = '';
-    document.getElementById('singleMasterIdInput').focus();
-}
-
 function clearAll() {
     csvData = [];
     searchResults = [];
@@ -869,10 +771,8 @@ function clearAll() {
     workDate = '';
     
     const csvFileInput = document.getElementById('csvFileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
     
     csvFileInput.value = '';
-    uploadBtn.disabled = true;
     
     document.getElementById('uploadStatus').innerHTML = '';
     document.getElementById('resultsCard').style.display = 'none';
@@ -880,8 +780,6 @@ function clearAll() {
     document.getElementById('searchSummary').innerHTML = '';
     document.getElementById('downloadPdfBtn').disabled = true;
     document.getElementById('downloadXmlBtn').disabled = true;
-    
-    clearLookup();
     
     showStatus('Application cleared successfully. Ready for new upload.', 'success');
     
@@ -893,7 +791,7 @@ function clearAll() {
 function showStatus(message, type) {
     const uploadStatus = document.getElementById('uploadStatus');
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
+    alertDiv.className = `alert alert-${type} fade-in`;
     alertDiv.textContent = message;
     uploadStatus.innerHTML = '';
     uploadStatus.appendChild(alertDiv);
