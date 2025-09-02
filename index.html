@@ -44,10 +44,10 @@
         .page-title {
             background-color: #0d6efd;
             color: white;
-            padding: 1.0rem;
+            padding: 1.5rem;
             margin: 0;
             font-weight: 600;
-            font-size: 2.2rem;
+            font-size: 2.5rem;
             text-align: center;
             border-radius: 12px 12px 0 0;
         }
@@ -156,23 +156,42 @@
             overflow-y: auto;
             border-radius: 8px;
             border: 1px solid #dee2e6;
+            overflow-x: hidden;
         }
 
         .table th {
             position: sticky;
             top: 0;
             z-index: 10;
-            white-space: nowrap;
             background-color: #495057;
             color: white;
             border: none;
             font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.75rem 0.5rem;
         }
 
         .table td {
-            white-space: nowrap;
             border-bottom: 1px solid #dee2e6;
             vertical-align: middle;
+            font-size: 0.85rem;
+            padding: 0.6rem 0.5rem;
+            max-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .table th:nth-child(1), .table td:nth-child(1) { width: 15%; }
+        .table th:nth-child(2), .table td:nth-child(2) { width: 35%; }
+        .table th:nth-child(3), .table td:nth-child(3) { width: 12%; }
+        .table th:nth-child(4), .table td:nth-child(4) { width: 20%; }
+        .table th:nth-child(5), .table td:nth-child(5) { width: 10%; }
+        .table th:nth-child(6), .table td:nth-child(6) { width: 8%; }
+
+        .table td:nth-child(2) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .table-striped > tbody > tr:nth-of-type(odd) > td {
