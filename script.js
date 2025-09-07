@@ -51,7 +51,7 @@ function showConfirmationModal(message, deleteAction) {
 function setupEventListeners() {
     const csvFileInput = document.getElementById('csvFileInput');
     
-    csvFileInput.addEventListener('change', handleCsvFileSelect);
+    csvFileInput.addEventListener('change', handleFileSelect);
     
     document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
     document.getElementById('downloadXmlBtn').addEventListener('click', downloadXML);
@@ -76,25 +76,51 @@ function loadJsonData() {
         });
 }
 
-function handleCsvFileSelect(e) {
+function getFileType(filename) {
+    const extension = filename.toLowerCase().split('.').pop();
+    return extension;
+}
+
+function handleFileSelect(e) {
     if (e.target.files.length > 0) {
         const file = e.target.files[0];
-        showStatus(`CSV file "${file.name}" selected. Processing...`, 'info');
+        const fileType = getFileType(file.name);
+        
+        // Update status with file type indicator
+        let fileTypeText = '';
+        if (fileType === 'xlsx' || fileType === 'xls') {
+            fileTypeText = '<span class="file-type-indicator">Excel</span>';
+        } else if (fileType === 'csv') {
+            fileTypeText = '<span class="file-type-indicator">CSV</span>';
+        }
+        
+        showStatus(`File "${file.name}" selected ${fileTypeText}. Processing...`, 'info');
+        
         // Process immediately after selection
-        setTimeout(() => handleCsvFile(file), 500);
+        setTimeout(() => handleFile(file), 500);
     } else {
         document.getElementById('uploadStatus').innerHTML = '';
     }
 }
 
-function handleCsvFile(file) {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-        showStatus('Please select a CSV file.', 'danger');
+function handleFile(file) {
+    const fileType = getFileType(file.name);
+    
+    if (!['csv', 'xlsx', 'xls'].includes(fileType)) {
+        showStatus('Please select a CSV or Excel file (.csv, .xlsx, .xls).', 'danger');
         return;
     }
 
-    showStatus('Processing CSV file...', 'info');
+    showStatus(`Processing ${fileType.toUpperCase()} file...`, 'info');
 
+    if (fileType === 'csv') {
+        handleCsvFile(file);
+    } else {
+        handleExcelFile(file);
+    }
+}
+
+function handleCsvFile(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -116,6 +142,50 @@ function handleCsvFile(file) {
         }
     };
     reader.readAsText(file);
+}
+
+function handleExcelFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { 
+                type: 'array',
+                cellDates: true,
+                cellNF: false,
+                cellText: false
+            });
+            
+            // Get the first worksheet
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convert to array of arrays (similar to CSV structure)
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                header: 1, 
+                defval: '',
+                raw: false // This will format dates and numbers as strings
+            });
+            
+            // Filter out completely empty rows
+            csvData = jsonData.filter(row => row.some(cell => cell && String(cell).trim() !== ''));
+            
+            if (csvData.length <= 1) {
+                showStatus('Excel file appears to be empty or contains only headers.', 'danger');
+                return;
+            }
+
+            console.log('Excel file processed. Sample data:', csvData.slice(0, 3));
+            
+            showStatus(`Excel file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column D, quantities from column B, and work date from column C...`, 'success');
+            setTimeout(processData, 1000);
+            
+        } catch (error) {
+            showStatus('Error reading Excel file. Please check the file format and ensure it\'s not corrupted.', 'danger');
+            console.error('Excel parsing error:', error);
+        }
+    };
+    reader.readAsArrayBuffer(file);
 }
 
 function parseCSVLine(line) {
@@ -222,7 +292,7 @@ function processData() {
     }
 
     if (csvData.length === 0) {
-        showStatus('Please upload a CSV file first.', 'warning');
+        showStatus('Please upload a file first.', 'warning');
         return;
     }
 
@@ -230,15 +300,22 @@ function processData() {
     const quantities = [];
     workDate = '';
     
-    console.log('Processing CSV data. Total rows:', csvData.length);
+    console.log('Processing file data. Total rows:', csvData.length);
     if (csvData.length > 1) {
         console.log('Sample row data:', csvData[1]);
     }
     
     for (let i = 1; i < csvData.length; i++) {
-        const masterIdValue = csvData[i][3]; // Column D
-        const quantityValue = csvData[i][1]; // Column B
-        const dateValue = csvData[i][2]; // Column C
+        const row = csvData[i];
+        
+        // Ensure row has enough columns
+        while (row.length < 4) {
+            row.push('');
+        }
+        
+        const masterIdValue = row[3]; // Column D (index 3)
+        const quantityValue = row[1]; // Column B (index 1)
+        const dateValue = row[2]; // Column C (index 2)
         
         console.log(`Row ${i}: Master Order ID = ${masterIdValue}, Quantity = ${quantityValue}, Date = ${dateValue}`);
         
@@ -258,7 +335,7 @@ function processData() {
     }
 
     console.log('Total Master Order IDs processed:', masterIds.length);
-    console.log('Work date from CSV:', workDate);
+    console.log('Work date from file:', workDate);
 
     searchResults = [];
     missingMasterIds = [];
