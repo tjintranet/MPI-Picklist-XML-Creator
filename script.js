@@ -347,7 +347,7 @@ function processData() {
         const match = findByMasterId(masterId);
         
         if (match) {
-            const trimSize = formatTrimSize(match[FIELD_MAP.trimHeight], match[FIELD_MAP.trimWidth]);
+            const trimSize = formatTrimSize(match[FIELD_MAP.trimWidth], match[FIELD_MAP.trimHeight]);
             const resultWithQuantity = {
                 [FIELD_MAP.masterId]: match[FIELD_MAP.masterId],
                 [FIELD_MAP.isbn]: match[FIELD_MAP.isbn],
