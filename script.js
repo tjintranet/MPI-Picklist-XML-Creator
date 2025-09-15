@@ -835,7 +835,7 @@ function downloadPDF() {
 
             pdf.setFontSize(8);
             pdf.setFont(undefined, 'bold');
-            pdf.text('Master Order ID', colPositions.masterId.x, yPos);
+            pdf.text('Master ID', colPositions.masterId.x, yPos);
             pdf.text('Title', colPositions.title.x, yPos);
             pdf.text('Trim Size', colPositions.trimSize.x, yPos);
             pdf.text('Paper', colPositions.paper.x, yPos);
