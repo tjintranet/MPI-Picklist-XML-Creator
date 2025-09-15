@@ -1,11 +1,13 @@
 let jsonData = [];
 let csvData = [];
 let searchResults = [];
+let filteredResults = [];
 let missingMasterIds = [];
 let workDate = '';
 let pendingDeleteAction = null;
+let mpiFilterActive = false;
 
-// Field mappings for the new JSON structure
+// Field mappings for the JSON structure
 const FIELD_MAP = {
     masterId: 'Master Order ID',
     isbn: 'ISBN',
@@ -29,15 +31,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function setupConfirmationModal() {
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-    confirmDeleteBtn.addEventListener('click', function() {
-        if (pendingDeleteAction) {
-            pendingDeleteAction();
-            pendingDeleteAction = null;
-        }
-        
-        const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
-        modal.hide();
-    });
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', function() {
+            if (pendingDeleteAction) {
+                pendingDeleteAction();
+                pendingDeleteAction = null;
+            }
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+            if (modal) {
+                modal.hide();
+            }
+        });
+    }
 }
 
 function showConfirmationModal(message, deleteAction) {
@@ -50,12 +56,33 @@ function showConfirmationModal(message, deleteAction) {
 
 function setupEventListeners() {
     const csvFileInput = document.getElementById('csvFileInput');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+    const downloadXmlBtn = document.getElementById('downloadXmlBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const mpiFilterToggle = document.getElementById('mpiFilterToggle');
     
-    csvFileInput.addEventListener('change', handleFileSelect);
+    if (csvFileInput) {
+        csvFileInput.addEventListener('change', handleFileSelect);
+    }
     
-    document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
-    document.getElementById('downloadXmlBtn').addEventListener('click', downloadXML);
-    document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+    if (downloadPdfBtn) {
+        downloadPdfBtn.addEventListener('click', downloadPDF);
+    }
+    
+    if (downloadXmlBtn) {
+        downloadXmlBtn.addEventListener('click', downloadXML);
+    }
+    
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', clearAll);
+    }
+    
+    if (mpiFilterToggle) {
+        mpiFilterToggle.addEventListener('change', handleMpiFilter);
+        console.log('MPI filter toggle event listener added');
+    } else {
+        console.warn('MPI filter toggle element not found');
+    }
 }
 
 function loadJsonData() {
@@ -86,7 +113,6 @@ function handleFileSelect(e) {
         const file = e.target.files[0];
         const fileType = getFileType(file.name);
         
-        // Update status with file type indicator
         let fileTypeText = '';
         if (fileType === 'xlsx' || fileType === 'xls') {
             fileTypeText = '<span class="file-type-indicator">Excel</span>';
@@ -96,7 +122,6 @@ function handleFileSelect(e) {
         
         showStatus(`File "${file.name}" selected ${fileTypeText}. Processing...`, 'info');
         
-        // Process immediately after selection
         setTimeout(() => handleFile(file), 500);
     } else {
         document.getElementById('uploadStatus').innerHTML = '';
@@ -156,18 +181,15 @@ function handleExcelFile(file) {
                 cellText: false
             });
             
-            // Get the first worksheet
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
             
-            // Convert to array of arrays (similar to CSV structure)
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
                 header: 1, 
                 defval: '',
-                raw: false // This will format dates and numbers as strings
+                raw: false
             });
             
-            // Filter out completely empty rows
             csvData = jsonData.filter(row => row.some(cell => cell && String(cell).trim() !== ''));
             
             if (csvData.length <= 1) {
@@ -296,7 +318,7 @@ function processData() {
         return;
     }
 
-    const masterIdData = {}; // Object to track Master IDs and their combined quantities
+    const masterIdData = {};
     workDate = '';
     
     console.log('Processing file data. Total rows:', csvData.length);
@@ -304,22 +326,19 @@ function processData() {
         console.log('Sample row data:', csvData[1]);
     }
     
-    // First pass: collect all Master IDs and sum quantities for duplicates
     for (let i = 1; i < csvData.length; i++) {
         const row = csvData[i];
         
-        // Ensure row has enough columns
         while (row.length < 4) {
             row.push('');
         }
         
-        const masterIdValue = row[3]; // Column D (index 3)
-        const quantityValue = row[1]; // Column B (index 1)
-        const dateValue = row[2]; // Column C (index 2)
+        const masterIdValue = row[3];
+        const quantityValue = row[1];
+        const dateValue = row[2];
         
         console.log(`Row ${i}: Master Order ID = ${masterIdValue}, Quantity = ${quantityValue}, Date = ${dateValue}`);
         
-        // Extract work date from first valid date found
         if (!workDate && dateValue && String(dateValue).trim() !== '' && String(dateValue).trim().toLowerCase() !== 'date') {
             workDate = String(dateValue).trim();
             console.log('Work date extracted:', workDate);
@@ -330,14 +349,11 @@ function processData() {
             if (!['master id', 'masterid', 'master', 'master order id'].includes(masterId.toLowerCase())) {
                 const quantity = parseInt(String(quantityValue || '0').trim()) || 0;
                 
-                // Check if this Master ID already exists
                 if (masterIdData[masterId]) {
-                    // Add to existing quantity
                     masterIdData[masterId].quantity += quantity;
                     masterIdData[masterId].duplicateCount++;
                     console.log(`Duplicate found for ${masterId}. New total quantity: ${masterIdData[masterId].quantity}`);
                 } else {
-                    // First occurrence of this Master ID
                     masterIdData[masterId] = {
                         quantity: quantity,
                         duplicateCount: 1
@@ -348,14 +364,12 @@ function processData() {
         }
     }
 
-    // Convert the masterIdData object to arrays for processing
     const masterIds = Object.keys(masterIdData);
     const quantities = masterIds.map(id => masterIdData[id].quantity.toString());
     
     console.log('Total unique Master Order IDs processed:', masterIds.length);
     console.log('Work date from file:', workDate);
     
-    // Check for duplicates and log them
     const duplicates = Object.entries(masterIdData).filter(([id, data]) => data.duplicateCount > 1);
     if (duplicates.length > 0) {
         console.log('Duplicates detected and consolidated:');
@@ -368,7 +382,6 @@ function processData() {
     missingMasterIds = [];
     const foundIds = [];
 
-    // Second pass: search for matches in JSON database
     for (let i = 0; i < masterIds.length; i++) {
         const masterId = masterIds[i];
         const quantity = quantities[i];
@@ -399,47 +412,78 @@ function processData() {
 
     console.log('Search results with consolidated quantities:', searchResults);
     
-    // Display summary including duplicate information
     const totalOriginalEntries = Object.values(masterIdData).reduce((sum, data) => sum + data.duplicateCount, 0);
     console.log(`Original entries: ${totalOriginalEntries}, Unique Master IDs: ${masterIds.length}, Duplicates consolidated: ${duplicates.length}`);
     
     displayResults(masterIds, foundIds, totalOriginalEntries, duplicates.length);
 }
 
-function displayResults(searchedIds, foundIds, totalOriginalEntries = null, duplicatesCount = 0) {
-    const totalSearched = searchedIds.length;
-    const totalFound = foundIds.length;
-    const notFound = totalSearched - totalFound;
-
-    // Use the original entry count if provided, otherwise use unique count
-    const displaySearchedCount = totalOriginalEntries !== null ? totalOriginalEntries : totalSearched;
+function handleMpiFilter() {
+    const mpiFilterToggle = document.getElementById('mpiFilterToggle');
     
-    displayResultsSummary(displaySearchedCount, totalFound, notFound, totalSearched, duplicatesCount);
+    if (!mpiFilterToggle) {
+        console.error('MPI filter toggle element not found');
+        return;
+    }
+    
+    mpiFilterActive = mpiFilterToggle.checked;
+    
+    console.log('MPI filter toggled:', mpiFilterActive);
+    console.log('Current search results:', searchResults.length);
+    
+    applyMpiFilter();
+    updateResultsDisplay();
+    updateFilteredSummary();
+    
+    console.log('Filtered results:', filteredResults.length);
+}
+
+function applyMpiFilter() {
+    if (mpiFilterActive) {
+        filteredResults = searchResults.filter(result => {
+            const status = String(result[FIELD_MAP.status] || '').trim().toLowerCase();
+            return status === 'mpi';
+        });
+        console.log(`Filtered to ${filteredResults.length} MPI items from ${searchResults.length} total items`);
+    } else {
+        filteredResults = [...searchResults];
+        console.log('Filter disabled, showing all results');
+    }
+}
+
+function getCurrentResults() {
+    return mpiFilterActive ? filteredResults : searchResults;
+}
+
+function displayResults(searchedIds, foundIds, totalOriginalEntries = null, duplicatesCount = 0) {
+    applyMpiFilter();
+    updateFilteredSummary();
     updateResultsDisplay();
 
     document.getElementById('resultsCard').style.display = 'block';
-    document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
-    document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
     document.getElementById('uploadStatus').innerHTML = '';
 }
 
-function displayResultsSummary(totalSearched, totalFound, notFound, uniqueCount = null, duplicatesCount = 0) {
+function updateFilteredSummary() {
     const summary = document.getElementById('searchSummary');
+    const currentResults = getCurrentResults();
+    
+    const totalOriginalEntries = searchResults.length + missingMasterIds.length;
+    const duplicatesCount = searchResults.filter(result => result['DuplicateInfo']).length;
     
     let summaryHtml = `
         <div class="row mb-3">
             <div class="col-md-3">
                 <div class="alert alert-info">
-                    <strong>Total Entries:</strong> ${totalSearched}
+                    <strong>Total Entries:</strong> ${totalOriginalEntries}
                 </div>
             </div>`;
     
-    // Show unique count if duplicates were found
-    if (uniqueCount !== null && duplicatesCount > 0) {
+    if (mpiFilterActive) {
         summaryHtml += `
             <div class="col-md-3">
-                <div class="alert alert-warning">
-                    <strong>Unique IDs:</strong> ${uniqueCount}
+                <div class="alert alert-primary">
+                    <strong>MPI Items:</strong> ${currentResults.length}
                 </div>
             </div>`;
     }
@@ -447,17 +491,16 @@ function displayResultsSummary(totalSearched, totalFound, notFound, uniqueCount 
     summaryHtml += `
             <div class="col-md-3">
                 <div class="alert alert-success">
-                    <strong>Found:</strong> ${totalFound}
+                    <strong>Found:</strong> ${searchResults.length}
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="alert alert-warning">
-                    <strong>Not Found:</strong> ${notFound}
+                    <strong>Not Found:</strong> ${missingMasterIds.length}
                 </div>
             </div>
         </div>`;
 
-    // Show duplicate information if any duplicates were consolidated
     if (duplicatesCount > 0) {
         summaryHtml += `
             <div class="alert alert-info">
@@ -465,6 +508,21 @@ function displayResultsSummary(totalSearched, totalFound, notFound, uniqueCount 
                 <p class="mb-1">Found <strong>${duplicatesCount}</strong> Master Order ID${duplicatesCount === 1 ? '' : 's'} with multiple entries. 
                 Quantities have been automatically summed for each duplicate ID.</p>
                 <small class="text-muted">Items with consolidated quantities are marked in the results table.</small>
+            </div>`;
+    }
+
+    if (mpiFilterActive) {
+        const podReadyCount = searchResults.filter(result => {
+            const status = String(result[FIELD_MAP.status] || '').trim().toLowerCase();
+            return status === 'pod ready';
+        }).length;
+        
+        summaryHtml += `
+            <div class="alert alert-primary">
+                <h6><i class="bi bi-funnel"></i> MPI Filter Active:</h6>
+                <p class="mb-1">Showing <strong>${currentResults.length}</strong> items with MPI status. 
+                <strong>${podReadyCount}</strong> Pod Ready items are hidden.</p>
+                <small class="text-muted">Toggle "MPI Only" filter to see all results.</small>
             </div>`;
     }
 
@@ -488,9 +546,10 @@ function updateResultsDisplay() {
     const tbody = document.getElementById('resultsTableBody');
     tbody.innerHTML = '';
 
-    // Group results by paper type
+    const currentResults = getCurrentResults();
+    
     const groupedResults = {};
-    for (const result of searchResults) {
+    for (const result of currentResults) {
         const paper = result[FIELD_MAP.paperDesc] || 'Unknown';
         if (!groupedResults[paper]) {
             groupedResults[paper] = [];
@@ -498,7 +557,6 @@ function updateResultsDisplay() {
         groupedResults[paper].push(result);
     }
 
-    // Sort paper types and items alphabetically
     const paperTypes = Object.keys(groupedResults).sort();
     
     for (const paperType of paperTypes) {
@@ -515,8 +573,9 @@ function updateResultsDisplay() {
         const headerCell = headerRow.insertCell();
         headerCell.colSpan = 7;
         
+        const filterSuffix = mpiFilterActive ? ' (MPI filtered)' : '';
         headerCell.innerHTML = `
-            <strong>${paperType} (${items.length} items)</strong>
+            <strong>${paperType} (${items.length} items${filterSuffix})</strong>
             <button class="delete-section-btn" title="Delete entire ${paperType} section">
                 <i class="bi bi-trash"></i> Delete Section
             </button>`;
@@ -527,9 +586,13 @@ function updateResultsDisplay() {
             const row = tbody.insertRow();
             row.setAttribute('data-master-id', result[FIELD_MAP.masterId]);
             
-            // Add duplicate indicator class if this item was consolidated
             if (result['DuplicateInfo']) {
                 row.classList.add('table-info');
+            }
+            
+            const status = String(result[FIELD_MAP.status] || '').trim().toLowerCase();
+            if (status === 'mpi') {
+                row.classList.add('table-warning');
             }
             
             row.insertCell(0).textContent = result[FIELD_MAP.masterId];
@@ -537,7 +600,6 @@ function updateResultsDisplay() {
             row.insertCell(2).textContent = result['Trim Size'] || '';
             row.insertCell(3).textContent = result[FIELD_MAP.paperDesc] || '';
             
-            // Quantity cell with duplicate indicator
             const quantityCell = row.insertCell(4);
             let quantityContent = result['Quantity'] || '';
             if (result['DuplicateInfo']) {
@@ -545,10 +607,14 @@ function updateResultsDisplay() {
             }
             quantityCell.innerHTML = quantityContent;
             
-            // Status cell
-            row.insertCell(5).textContent = result[FIELD_MAP.status] || '';
+            const statusCell = row.insertCell(5);
+            const statusText = result[FIELD_MAP.status] || '';
+            if (status === 'mpi') {
+                statusCell.innerHTML = `<span class="badge bg-warning text-dark">${statusText}</span>`;
+            } else {
+                statusCell.textContent = statusText;
+            }
             
-            // Action cell
             const actionCell = row.insertCell(6);
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
@@ -558,6 +624,10 @@ function updateResultsDisplay() {
             actionCell.appendChild(deleteBtn);
         }
     }
+    
+    const hasResults = currentResults.length > 0;
+    document.getElementById('downloadPdfBtn').disabled = !hasResults;
+    document.getElementById('downloadXmlBtn').disabled = !hasResults;
 }
 
 function deletePaperTypeSection(paperType) {
@@ -572,14 +642,9 @@ function deletePaperTypeSection(paperType) {
             (result[FIELD_MAP.paperDesc] || 'Unknown') !== paperType
         );
         
+        applyMpiFilter();
         updateResultsDisplay();
-        
-        const foundIds = searchResults.map(r => r[FIELD_MAP.masterId]);
-        const originalSearched = foundIds.length + missingMasterIds.length;
-        displayResultsSummary(originalSearched, foundIds.length, missingMasterIds.length);
-        
-        document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
-        document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
+        updateFilteredSummary();
         
         if (searchResults.length === 0) {
             document.getElementById('resultsCard').style.display = 'none';
@@ -596,14 +661,9 @@ function deleteResultRow(masterId) {
             searchResults.splice(index, 1);
         }
         
+        applyMpiFilter();
         updateResultsDisplay();
-        
-        const foundIds = searchResults.map(r => r[FIELD_MAP.masterId]);
-        const originalSearched = foundIds.length + missingMasterIds.length;
-        displayResultsSummary(originalSearched, foundIds.length, missingMasterIds.length);
-        
-        document.getElementById('downloadPdfBtn').disabled = searchResults.length === 0;
-        document.getElementById('downloadXmlBtn').disabled = searchResults.length === 0;
+        updateFilteredSummary();
         
         if (searchResults.length === 0) {
             document.getElementById('resultsCard').style.display = 'none';
@@ -647,230 +707,247 @@ function formatDateForPDF(dateString) {
 }
 
 function downloadPDF() {
-    if (searchResults.length === 0) {
+    const currentResults = getCurrentResults();
+    
+    if (currentResults.length === 0) {
         showStatus('No results to download.', 'warning');
         return;
     }
 
-    const jsPDF = window.jspdf.jsPDF;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-
-    console.log('Generating grouped PDF with', searchResults.length, 'results');
-
-    const formattedWorkDate = formatDateForPDF(workDate);
-
-    pdf.setFontSize(14);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('Master Order ID Search Results - Grouped by Paper Type', 20, 20);
-
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'normal');
-    pdf.text('Generated: ' + new Date().toLocaleString(), 20, 30);
-    pdf.text('Results Found: ' + searchResults.length, 20, 36);
-    
-    let yPos = 50;
-    if (formattedWorkDate) {
-        pdf.text('Work Date: ' + formattedWorkDate, 20, 42);
-        yPos = 56;
+    if (typeof window.jspdf === 'undefined') {
+        showStatus('PDF library not loaded. Please refresh the page and try again.', 'danger');
+        console.error('jsPDF library not found');
+        return;
     }
 
-    // Check if any items were consolidated from duplicates
-    const consolidatedItems = searchResults.filter(result => result['DuplicateInfo']);
-    if (consolidatedItems.length > 0) {
-        pdf.setFontSize(9);
-        pdf.setFont(undefined, 'italic');
-        pdf.text(`Note: ${consolidatedItems.length} item${consolidatedItems.length === 1 ? ' has' : 's have'} consolidated quantities from duplicate entries.`, 20, yPos - 6);
-    }
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
 
-    if (missingMasterIds.length > 0) {
-        pdf.setFontSize(12);
+        console.log('Generating grouped PDF with', currentResults.length, 'results');
+
+        const formattedWorkDate = formatDateForPDF(workDate);
+        const filterSuffix = mpiFilterActive ? ' (MPI Only)' : '';
+
+        pdf.setFontSize(14);
         pdf.setFont(undefined, 'bold');
-        pdf.text('Missing Master Order IDs (' + missingMasterIds.length + ' not found):', 20, yPos);
-        yPos += 8;
+        pdf.text(`Master Order ID Search Results - Grouped by Paper Type${filterSuffix}`, 20, 20);
 
-        pdf.setFontSize(9);
+        pdf.setFontSize(10);
         pdf.setFont(undefined, 'normal');
+        pdf.text('Generated: ' + new Date().toLocaleString(), 20, 30);
+        pdf.text('Results Found: ' + currentResults.length, 20, 36);
         
-        let missingText = '';
-        for (let i = 0; i < missingMasterIds.length; i++) {
-            if (i > 0) missingText += ', ';
-            missingText += missingMasterIds[i];
+        let yPos = 50;
+        if (formattedWorkDate) {
+            pdf.text('Work Date: ' + formattedWorkDate, 20, 42);
+            yPos = 56;
+        }
+
+        if (mpiFilterActive) {
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'italic');
+            pdf.text('Filter: MPI status items only', 20, yPos - 8);
+        }
+
+        const consolidatedItems = currentResults.filter(result => result['DuplicateInfo']);
+        if (consolidatedItems.length > 0) {
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'italic');
+            const noteYPos = mpiFilterActive ? yPos - 3 : yPos - 4;
+            /*pdf.text(`Note: ${consolidatedItems.length} item${consolidatedItems.length === 1 ? ' has' : 's have'} consolidated quantities from duplicate entries.`, 20, noteYPos);*/
+        }
+
+        if (missingMasterIds.length > 0) {
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Missing Master Order IDs (' + missingMasterIds.length + ' not found):', 20, yPos);
+            yPos += 8;
+
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'normal');
             
-            if (missingText.length > 80 * Math.floor(i / 10 + 1)) {
-                pdf.text(missingText.substring(missingText.lastIndexOf(',', missingText.length - 20) + 2), 20, yPos);
-                yPos += 6;
-                missingText = missingMasterIds[i];
+            let missingText = '';
+            for (let i = 0; i < missingMasterIds.length; i++) {
+                if (i > 0) missingText += ', ';
+                missingText += missingMasterIds[i];
+                
+                if (missingText.length > 80 * Math.floor(i / 10 + 1)) {
+                    pdf.text(missingText.substring(missingText.lastIndexOf(',', missingText.length - 20) + 2), 20, yPos);
+                    yPos += 6;
+                    missingText = missingMasterIds[i];
+                }
             }
-        }
-        
-        if (missingText.length > 0) {
-            pdf.text(missingText, 20, yPos);
-            yPos += 6;
-        }
-        
-        yPos += 10;
-        
-        if (yPos > 250) {
-            pdf.addPage();
-            yPos = 20;
-        }
-    }
-
-    // Group results by paper type
-    const groupedResults = {};
-    for (const result of searchResults) {
-        const paper = String(result[FIELD_MAP.paperDesc] || 'Unknown').trim();
-        if (!groupedResults[paper]) {
-            groupedResults[paper] = [];
-        }
-        groupedResults[paper].push(result);
-    }
-
-    console.log('Paper groups created:', Object.keys(groupedResults));
-
-    const colPositions = {
-        masterId: { x: 15 },
-        title: { x: 35 },
-        trimSize: { x: 95 },
-        paper: { x: 110 },
-        quantity: { x: 150 },
-        status: { x: 165 }
-    };
-
-    const paperTypes = Object.keys(groupedResults).sort();
-    
-    for (let groupIndex = 0; groupIndex < paperTypes.length; groupIndex++) {
-        const paperType = paperTypes[groupIndex];
-        const items = groupedResults[paperType];
-        
-        items.sort((a, b) => {
-            const masterIdA = String(a[FIELD_MAP.masterId] || '').toLowerCase();
-            const masterIdB = String(b[FIELD_MAP.masterId] || '').toLowerCase();
-            return masterIdA.localeCompare(masterIdB);
-        });
-        
-        console.log(`Processing group ${groupIndex + 1}: ${paperType} with ${items.length} items (sorted by Master Order ID)`);
-
-        if (yPos > 250) {
-            pdf.addPage();
-            yPos = 20;
+            
+            if (missingText.length > 0) {
+                pdf.text(missingText, 20, yPos);
+                yPos += 6;
+            }
+            
+            yPos += 10;
+            
         }
 
-        pdf.setFontSize(11);
-        pdf.setFont(undefined, 'bold');
-        pdf.setFillColor(220, 220, 220);
-        pdf.rect(15, yPos - 3, 180, 10, 'F');
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(`${paperType} (${items.length} items)`, 17, yPos + 3);
-        yPos += 15;
+        const groupedResults = {};
+        for (const result of currentResults) {
+            const paper = String(result[FIELD_MAP.paperDesc] || 'Unknown').trim();
+            if (!groupedResults[paper]) {
+                groupedResults[paper] = [];
+            }
+            groupedResults[paper].push(result);
+        }
 
-        pdf.setFontSize(8);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('Master ID', colPositions.masterId.x, yPos);
-        pdf.text('Title', colPositions.title.x, yPos);
-        pdf.text('Trim Size', colPositions.trimSize.x, yPos);
-        pdf.text('Paper', colPositions.paper.x, yPos);
-        pdf.text('Qty', colPositions.quantity.x, yPos);
-        pdf.text('Status', colPositions.status.x, yPos);
+        const colPositions = {
+            masterId: { x: 15 },
+            title: { x: 35 },
+            trimSize: { x: 95 },
+            paper: { x: 110 },
+            quantity: { x: 150 },
+            status: { x: 165 }
+        };
 
-        pdf.setLineWidth(0.2);
-        pdf.line(15, yPos + 2, 195, yPos + 2);
-        yPos += 8;
+        const paperTypes = Object.keys(groupedResults).sort();
+        
+        for (let groupIndex = 0; groupIndex < paperTypes.length; groupIndex++) {
+            const paperType = paperTypes[groupIndex];
+            const items = groupedResults[paperType];
+            
+            items.sort((a, b) => {
+                const masterIdA = String(a[FIELD_MAP.masterId] || '').toLowerCase();
+                const masterIdB = String(b[FIELD_MAP.masterId] || '').toLowerCase();
+                return masterIdA.localeCompare(masterIdB);
+            });
+            
+            console.log(`Processing group ${groupIndex + 1}: ${paperType} with ${items.length} items (sorted by Master Order ID)`);
 
-        pdf.setFont(undefined, 'normal');
-        pdf.setFontSize(7);
-
-        for (const result of items) {
-            if (yPos > 280) {
+            if (yPos > 250) {
                 pdf.addPage();
                 yPos = 20;
-                
-                pdf.setFontSize(11);
-                pdf.setFont(undefined, 'bold');
-                pdf.setFillColor(220, 220, 220);
-                pdf.rect(15, yPos - 3, 180, 10, 'F');
-                pdf.text(`${paperType} (continued)`, 17, yPos + 3);
-                yPos += 15;
-                
-                pdf.setFontSize(8);
-                pdf.text('Master Order ID', colPositions.masterId.x, yPos);
-                pdf.text('Title', colPositions.title.x, yPos);
-                pdf.text('Trim Size', colPositions.trimSize.x, yPos);
-                pdf.text('Paper', colPositions.paper.x, yPos);
-                pdf.text('Qty', colPositions.quantity.x, yPos);
-                pdf.text('Status', colPositions.status.x, yPos);
-                pdf.line(15, yPos + 2, 195, yPos + 2);
-                yPos += 8;
-                pdf.setFontSize(7);
-                pdf.setFont(undefined, 'normal');
             }
 
-            const masterId = String(result[FIELD_MAP.masterId] || '');
-            const title = String(result[FIELD_MAP.title] || '');
-            const trimSize = String(result['Trim Size'] || '');
-            const paper = String(result[FIELD_MAP.paperDesc] || '');
-            const quantity = String(result['Quantity'] || '');
-            const status = String(result[FIELD_MAP.status] || '');
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'bold');
+            pdf.setFillColor(220, 220, 220);
+            pdf.rect(15, yPos - 3, 180, 10, 'F');
+            pdf.setTextColor(0, 0, 0);
+            pdf.text(`${paperType} (${items.length} items)`, 17, yPos + 3);
+            yPos += 15;
 
-            pdf.text(masterId.length > 10 ? masterId.substring(0, 10) + '..' : masterId, colPositions.masterId.x, yPos);
-            
-            if (title.length > 30) {
-                pdf.text(title.substring(0, 30) + '...', colPositions.title.x, yPos);
-            } else {
-                pdf.text(title, colPositions.title.x, yPos);
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Master Order ID', colPositions.masterId.x, yPos);
+            pdf.text('Title', colPositions.title.x, yPos);
+            pdf.text('Trim Size', colPositions.trimSize.x, yPos);
+            pdf.text('Paper', colPositions.paper.x, yPos);
+            pdf.text('Qty', colPositions.quantity.x, yPos);
+            pdf.text('Status', colPositions.status.x, yPos);
+
+            pdf.setLineWidth(0.2);
+            pdf.line(15, yPos + 2, 195, yPos + 2);
+            yPos += 8;
+
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(7);
+
+            for (const result of items) {
+                if (yPos > 280) {
+                    pdf.addPage();
+                    yPos = 20;
+                    
+                    pdf.setFontSize(11);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.setFillColor(220, 220, 220);
+                    pdf.rect(15, yPos - 3, 180, 10, 'F');
+                    pdf.text(`${paperType} (continued)`, 17, yPos + 3);
+                    yPos += 15;
+                    
+                    pdf.setFontSize(8);
+                    pdf.text('Master ID', colPositions.masterId.x, yPos);
+                    pdf.text('Title', colPositions.title.x, yPos);
+                    pdf.text('Trim Size', colPositions.trimSize.x, yPos);
+                    pdf.text('Paper', colPositions.paper.x, yPos);
+                    pdf.text('Qty', colPositions.quantity.x, yPos);
+                    pdf.text('Status', colPositions.status.x, yPos);
+                    pdf.line(15, yPos + 2, 195, yPos + 2);
+                    yPos += 8;
+                    pdf.setFontSize(7);
+                    pdf.setFont(undefined, 'normal');
+                }
+
+                const masterId = String(result[FIELD_MAP.masterId] || '');
+                const title = String(result[FIELD_MAP.title] || '');
+                const trimSize = String(result['Trim Size'] || '');
+                const paper = String(result[FIELD_MAP.paperDesc] || '');
+                const quantity = String(result['Quantity'] || '');
+                const status = String(result[FIELD_MAP.status] || '');
+
+                pdf.text(masterId.length > 10 ? masterId.substring(0, 10) + '..' : masterId, colPositions.masterId.x, yPos);
+                
+                if (title.length > 30) {
+                    pdf.text(title.substring(0, 30) + '...', colPositions.title.x, yPos);
+                } else {
+                    pdf.text(title, colPositions.title.x, yPos);
+                }
+                
+                pdf.text(trimSize, colPositions.trimSize.x, yPos);
+                pdf.text(paper.length > 20 ? paper.substring(0, 20) + '..' : paper, colPositions.paper.x, yPos);
+                
+                let quantityText = quantity;
+                if (result['DuplicateInfo']) {
+                    quantityText += '*';
+                }
+                pdf.text(quantityText, colPositions.quantity.x, yPos);
+                
+                pdf.text(status.length > 15 ? status.substring(0, 15) + '..' : status, colPositions.status.x, yPos);
+                
+                yPos += 5;
             }
-            
-            pdf.text(trimSize, colPositions.trimSize.x, yPos);
-            pdf.text(paper.length > 20 ? paper.substring(0, 20) + '..' : paper, colPositions.paper.x, yPos);
-            
-            // Add asterisk for consolidated quantities
-            let quantityText = quantity;
-            if (result['DuplicateInfo']) {
-                quantityText += '*';
+
+            if (groupIndex < paperTypes.length - 1) {
+                yPos += 10;
             }
-            pdf.text(quantityText, colPositions.quantity.x, yPos);
-            
-            pdf.text(status.length > 15 ? status.substring(0, 15) + '..' : status, colPositions.status.x, yPos);
-            
-            yPos += 5;
         }
 
-        if (groupIndex < paperTypes.length - 1) {
+        if (consolidatedItems.length > 0) {
+            if (yPos > 270) {
+                pdf.addPage();
+                yPos = 20;
+            }
             yPos += 10;
+            pdf.setFontSize(7);
+            pdf.setFont(undefined, 'italic');
+            pdf.text('* Quantity consolidated from multiple duplicate entries', 15, yPos);
         }
-    }
 
-    // Add footnote about consolidated quantities if any exist
-    if (consolidatedItems.length > 0) {
-        if (yPos > 270) {
-            pdf.addPage();
-            yPos = 20;
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.text(`Page ${i} of ${pageCount}`, 175, 287);
         }
-        yPos += 10;
-        pdf.setFontSize(7);
-        pdf.setFont(undefined, 'italic');
-        pdf.text('* Quantity consolidated from multiple duplicate entries', 15, yPos);
-    }
 
-    const pageCount = pdf.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(8);
-        pdf.text(`Page ${i} of ${pageCount}`, 175, 287);
+        const filterPrefix = mpiFilterActive ? 'MPI_' : '';
+        const fileName = `1up_WTL_${filterPrefix}${formatWorkDateForWTL(workDate)}.pdf`;
+        console.log('Saving PDF as:', fileName);
+        pdf.save(fileName);
+        
+        showStatus('PDF generated successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        showStatus('Error generating PDF. Please try again.', 'danger');
     }
-
-    const fileName = `1up_WTL_${formatWorkDateForWTL(workDate)}.pdf`;
-    console.log('Saving PDF as:', fileName);
-    pdf.save(fileName);
 }
 
 function downloadXML() {
-    if (searchResults.length === 0) {
+    const currentResults = getCurrentResults();
+    
+    if (currentResults.length === 0) {
         showStatus('No results to download.', 'warning');
         return;
     }
 
-    console.log('Generating individual XML files for', searchResults.length, 'results');
+    console.log('Generating individual XML files for', currentResults.length, 'results');
 
     if (typeof JSZip === 'undefined') {
         showStatus('JSZip library not loaded. Please refresh the page and try again.', 'danger');
@@ -879,7 +956,7 @@ function downloadXML() {
 
     const zip = new JSZip();
 
-    for (const result of searchResults) {
+    for (const result of currentResults) {
         const isbn = String(result[FIELD_MAP.isbn] || '').trim();
         const masterId = String(result[FIELD_MAP.masterId] || '').trim();
         
@@ -898,7 +975,9 @@ function downloadXML() {
     zip.generateAsync({type: 'blob'}).then(function(content) {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
-        link.download = `1up_WTL_${formatWorkDateForWTL(workDate)}.zip`;
+        
+        const filterPrefix = mpiFilterActive ? 'MPI_' : '';
+        link.download = `1up_WTL_${filterPrefix}${formatWorkDateForWTL(workDate)}.zip`;
         link.style.display = 'none';
         
         document.body.appendChild(link);
@@ -955,12 +1034,21 @@ function sanitizeFilename(filename) {
 function clearAll() {
     csvData = [];
     searchResults = [];
+    filteredResults = [];
     missingMasterIds = [];
     workDate = '';
+    mpiFilterActive = false;
     
     const csvFileInput = document.getElementById('csvFileInput');
+    const mpiFilterToggle = document.getElementById('mpiFilterToggle');
     
-    csvFileInput.value = '';
+    if (csvFileInput) {
+        csvFileInput.value = '';
+    }
+    
+    if (mpiFilterToggle) {
+        mpiFilterToggle.checked = false;
+    }
     
     document.getElementById('uploadStatus').innerHTML = '';
     document.getElementById('resultsCard').style.display = 'none';
@@ -978,9 +1066,11 @@ function clearAll() {
 
 function showStatus(message, type) {
     const uploadStatus = document.getElementById('uploadStatus');
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} fade-in`;
-    alertDiv.textContent = message;
-    uploadStatus.innerHTML = '';
-    uploadStatus.appendChild(alertDiv);
+    if (uploadStatus) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} fade-in`;
+        alertDiv.textContent = message;
+        uploadStatus.innerHTML = '';
+        uploadStatus.appendChild(alertDiv);
+    }
 }
