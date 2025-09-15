@@ -296,8 +296,7 @@ function processData() {
         return;
     }
 
-    const masterIds = [];
-    const quantities = [];
+    const masterIdData = {}; // Object to track Master IDs and their combined quantities
     workDate = '';
     
     console.log('Processing file data. Total rows:', csvData.length);
@@ -305,6 +304,7 @@ function processData() {
         console.log('Sample row data:', csvData[1]);
     }
     
+    // First pass: collect all Master IDs and sum quantities for duplicates
     for (let i = 1; i < csvData.length; i++) {
         const row = csvData[i];
         
@@ -319,6 +319,7 @@ function processData() {
         
         console.log(`Row ${i}: Master Order ID = ${masterIdValue}, Quantity = ${quantityValue}, Date = ${dateValue}`);
         
+        // Extract work date from first valid date found
         if (!workDate && dateValue && String(dateValue).trim() !== '' && String(dateValue).trim().toLowerCase() !== 'date') {
             workDate = String(dateValue).trim();
             console.log('Work date extracted:', workDate);
@@ -327,20 +328,47 @@ function processData() {
         if (masterIdValue && String(masterIdValue).trim() !== '') {
             const masterId = String(masterIdValue).trim();
             if (!['master id', 'masterid', 'master', 'master order id'].includes(masterId.toLowerCase())) {
-                masterIds.push(masterId);
-                quantities.push(String(quantityValue || '0').trim());
-                console.log(`Added: Master Order ID = ${masterId}, Quantity = ${quantityValue}`);
+                const quantity = parseInt(String(quantityValue || '0').trim()) || 0;
+                
+                // Check if this Master ID already exists
+                if (masterIdData[masterId]) {
+                    // Add to existing quantity
+                    masterIdData[masterId].quantity += quantity;
+                    masterIdData[masterId].duplicateCount++;
+                    console.log(`Duplicate found for ${masterId}. New total quantity: ${masterIdData[masterId].quantity}`);
+                } else {
+                    // First occurrence of this Master ID
+                    masterIdData[masterId] = {
+                        quantity: quantity,
+                        duplicateCount: 1
+                    };
+                }
+                console.log(`Processed: Master Order ID = ${masterId}, Quantity = ${quantity}`);
             }
         }
     }
 
-    console.log('Total Master Order IDs processed:', masterIds.length);
+    // Convert the masterIdData object to arrays for processing
+    const masterIds = Object.keys(masterIdData);
+    const quantities = masterIds.map(id => masterIdData[id].quantity.toString());
+    
+    console.log('Total unique Master Order IDs processed:', masterIds.length);
     console.log('Work date from file:', workDate);
+    
+    // Check for duplicates and log them
+    const duplicates = Object.entries(masterIdData).filter(([id, data]) => data.duplicateCount > 1);
+    if (duplicates.length > 0) {
+        console.log('Duplicates detected and consolidated:');
+        duplicates.forEach(([id, data]) => {
+            console.log(`  ${id}: appeared ${data.duplicateCount} times, total quantity: ${data.quantity}`);
+        });
+    }
 
     searchResults = [];
     missingMasterIds = [];
     const foundIds = [];
 
+    // Second pass: search for matches in JSON database
     for (let i = 0; i < masterIds.length; i++) {
         const masterId = masterIds[i];
         const quantity = quantities[i];
@@ -357,7 +385,9 @@ function processData() {
                 [FIELD_MAP.bindStyle]: match[FIELD_MAP.bindStyle],
                 [FIELD_MAP.extent]: match[FIELD_MAP.extent],
                 [FIELD_MAP.status]: match[FIELD_MAP.status],
-                'Quantity': quantity
+                'Quantity': quantity,
+                'DuplicateInfo': masterIdData[masterId].duplicateCount > 1 ? 
+                    `Consolidated from ${masterIdData[masterId].duplicateCount} entries` : null
             };
             
             searchResults.push(resultWithQuantity);
@@ -367,16 +397,24 @@ function processData() {
         }
     }
 
-    console.log('Search results with quantities:', searchResults);
-    displayResults(masterIds, foundIds);
+    console.log('Search results with consolidated quantities:', searchResults);
+    
+    // Display summary including duplicate information
+    const totalOriginalEntries = Object.values(masterIdData).reduce((sum, data) => sum + data.duplicateCount, 0);
+    console.log(`Original entries: ${totalOriginalEntries}, Unique Master IDs: ${masterIds.length}, Duplicates consolidated: ${duplicates.length}`);
+    
+    displayResults(masterIds, foundIds, totalOriginalEntries, duplicates.length);
 }
 
-function displayResults(searchedIds, foundIds) {
+function displayResults(searchedIds, foundIds, totalOriginalEntries = null, duplicatesCount = 0) {
     const totalSearched = searchedIds.length;
     const totalFound = foundIds.length;
     const notFound = totalSearched - totalFound;
 
-    displayResultsSummary(totalSearched, totalFound, notFound);
+    // Use the original entry count if provided, otherwise use unique count
+    const displaySearchedCount = totalOriginalEntries !== null ? totalOriginalEntries : totalSearched;
+    
+    displayResultsSummary(displaySearchedCount, totalFound, notFound, totalSearched, duplicatesCount);
     updateResultsDisplay();
 
     document.getElementById('resultsCard').style.display = 'block';
@@ -385,27 +423,50 @@ function displayResults(searchedIds, foundIds) {
     document.getElementById('uploadStatus').innerHTML = '';
 }
 
-function displayResultsSummary(totalSearched, totalFound, notFound) {
+function displayResultsSummary(totalSearched, totalFound, notFound, uniqueCount = null, duplicatesCount = 0) {
     const summary = document.getElementById('searchSummary');
     
     let summaryHtml = `
         <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="alert alert-info">
-                    <strong>Total Searched:</strong> ${totalSearched}
+                    <strong>Total Entries:</strong> ${totalSearched}
                 </div>
-            </div>
-            <div class="col-md-4">
+            </div>`;
+    
+    // Show unique count if duplicates were found
+    if (uniqueCount !== null && duplicatesCount > 0) {
+        summaryHtml += `
+            <div class="col-md-3">
+                <div class="alert alert-warning">
+                    <strong>Unique IDs:</strong> ${uniqueCount}
+                </div>
+            </div>`;
+    }
+    
+    summaryHtml += `
+            <div class="col-md-3">
                 <div class="alert alert-success">
                     <strong>Found:</strong> ${totalFound}
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="alert alert-warning">
                     <strong>Not Found:</strong> ${notFound}
                 </div>
             </div>
         </div>`;
+
+    // Show duplicate information if any duplicates were consolidated
+    if (duplicatesCount > 0) {
+        summaryHtml += `
+            <div class="alert alert-info">
+                <h6><i class="bi bi-info-circle"></i> Duplicate Consolidation:</h6>
+                <p class="mb-1">Found <strong>${duplicatesCount}</strong> Master Order ID${duplicatesCount === 1 ? '' : 's'} with multiple entries. 
+                Quantities have been automatically summed for each duplicate ID.</p>
+                <small class="text-muted">Items with consolidated quantities are marked in the results table.</small>
+            </div>`;
+    }
 
     if (missingMasterIds.length > 0) {
         summaryHtml += `
@@ -452,7 +513,7 @@ function updateResultsDisplay() {
         const headerRow = tbody.insertRow();
         headerRow.className = 'table-secondary';
         const headerCell = headerRow.insertCell();
-        headerCell.colSpan = 6;
+        headerCell.colSpan = 7;
         
         headerCell.innerHTML = `
             <strong>${paperType} (${items.length} items)</strong>
@@ -465,13 +526,30 @@ function updateResultsDisplay() {
         for (const result of items) {
             const row = tbody.insertRow();
             row.setAttribute('data-master-id', result[FIELD_MAP.masterId]);
+            
+            // Add duplicate indicator class if this item was consolidated
+            if (result['DuplicateInfo']) {
+                row.classList.add('table-info');
+            }
+            
             row.insertCell(0).textContent = result[FIELD_MAP.masterId];
             row.insertCell(1).textContent = result[FIELD_MAP.title] || '';
             row.insertCell(2).textContent = result['Trim Size'] || '';
             row.insertCell(3).textContent = result[FIELD_MAP.paperDesc] || '';
-            row.insertCell(4).textContent = result['Quantity'] || '';
             
-            const actionCell = row.insertCell(5);
+            // Quantity cell with duplicate indicator
+            const quantityCell = row.insertCell(4);
+            let quantityContent = result['Quantity'] || '';
+            if (result['DuplicateInfo']) {
+                quantityContent += ' <i class="bi bi-stack text-info" title="' + result['DuplicateInfo'] + '"></i>';
+            }
+            quantityCell.innerHTML = quantityContent;
+            
+            // Status cell
+            row.insertCell(5).textContent = result[FIELD_MAP.status] || '';
+            
+            // Action cell
+            const actionCell = row.insertCell(6);
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
             deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
@@ -596,6 +674,14 @@ function downloadPDF() {
         yPos = 56;
     }
 
+    // Check if any items were consolidated from duplicates
+    const consolidatedItems = searchResults.filter(result => result['DuplicateInfo']);
+    if (consolidatedItems.length > 0) {
+        pdf.setFontSize(9);
+        pdf.setFont(undefined, 'italic');
+        pdf.text(`Note: ${consolidatedItems.length} item${consolidatedItems.length === 1 ? ' has' : 's have'} consolidated quantities from duplicate entries.`, 20, yPos - 6);
+    }
+
     if (missingMasterIds.length > 0) {
         pdf.setFontSize(12);
         pdf.setFont(undefined, 'bold');
@@ -644,10 +730,11 @@ function downloadPDF() {
 
     const colPositions = {
         masterId: { x: 15 },
-        title: { x: 37 },
-        trimSize: { x: 105 },
-        paper: { x: 125 },
-        quantity: { x: 175 }
+        title: { x: 35 },
+        trimSize: { x: 95 },
+        paper: { x: 110 },
+        quantity: { x: 150 },
+        status: { x: 165 }
     };
 
     const paperTypes = Object.keys(groupedResults).sort();
@@ -679,11 +766,12 @@ function downloadPDF() {
 
         pdf.setFontSize(8);
         pdf.setFont(undefined, 'bold');
-        pdf.text('Master Order ID', colPositions.masterId.x, yPos);
+        pdf.text('Master ID', colPositions.masterId.x, yPos);
         pdf.text('Title', colPositions.title.x, yPos);
         pdf.text('Trim Size', colPositions.trimSize.x, yPos);
         pdf.text('Paper', colPositions.paper.x, yPos);
-        pdf.text('Quantity', colPositions.quantity.x, yPos);
+        pdf.text('Qty', colPositions.quantity.x, yPos);
+        pdf.text('Status', colPositions.status.x, yPos);
 
         pdf.setLineWidth(0.2);
         pdf.line(15, yPos + 2, 195, yPos + 2);
@@ -709,7 +797,8 @@ function downloadPDF() {
                 pdf.text('Title', colPositions.title.x, yPos);
                 pdf.text('Trim Size', colPositions.trimSize.x, yPos);
                 pdf.text('Paper', colPositions.paper.x, yPos);
-                pdf.text('Quantity', colPositions.quantity.x, yPos);
+                pdf.text('Qty', colPositions.quantity.x, yPos);
+                pdf.text('Status', colPositions.status.x, yPos);
                 pdf.line(15, yPos + 2, 195, yPos + 2);
                 yPos += 8;
                 pdf.setFontSize(7);
@@ -721,18 +810,27 @@ function downloadPDF() {
             const trimSize = String(result['Trim Size'] || '');
             const paper = String(result[FIELD_MAP.paperDesc] || '');
             const quantity = String(result['Quantity'] || '');
+            const status = String(result[FIELD_MAP.status] || '');
 
-            pdf.text(masterId.length > 12 ? masterId.substring(0, 12) + '..' : masterId, colPositions.masterId.x, yPos);
+            pdf.text(masterId.length > 10 ? masterId.substring(0, 10) + '..' : masterId, colPositions.masterId.x, yPos);
             
-            if (title.length > 35) {
-                pdf.text(title.substring(0, 35) + '...', colPositions.title.x, yPos);
+            if (title.length > 30) {
+                pdf.text(title.substring(0, 30) + '...', colPositions.title.x, yPos);
             } else {
                 pdf.text(title, colPositions.title.x, yPos);
             }
             
             pdf.text(trimSize, colPositions.trimSize.x, yPos);
-            pdf.text(paper.length > 25 ? paper.substring(0, 25) + '..' : paper, colPositions.paper.x, yPos);
-            pdf.text(quantity, colPositions.quantity.x, yPos);
+            pdf.text(paper.length > 20 ? paper.substring(0, 20) + '..' : paper, colPositions.paper.x, yPos);
+            
+            // Add asterisk for consolidated quantities
+            let quantityText = quantity;
+            if (result['DuplicateInfo']) {
+                quantityText += '*';
+            }
+            pdf.text(quantityText, colPositions.quantity.x, yPos);
+            
+            pdf.text(status.length > 15 ? status.substring(0, 15) + '..' : status, colPositions.status.x, yPos);
             
             yPos += 5;
         }
@@ -740,6 +838,18 @@ function downloadPDF() {
         if (groupIndex < paperTypes.length - 1) {
             yPos += 10;
         }
+    }
+
+    // Add footnote about consolidated quantities if any exist
+    if (consolidatedItems.length > 0) {
+        if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+        }
+        yPos += 10;
+        pdf.setFontSize(7);
+        pdf.setFont(undefined, 'italic');
+        pdf.text('* Quantity consolidated from multiple duplicate entries', 15, yPos);
     }
 
     const pageCount = pdf.internal.getNumberOfPages();
@@ -814,6 +924,7 @@ function generateIndividualXMLContent(item) {
   <Extent>${escapeXML(item[FIELD_MAP.extent] || '')}</Extent>
   <Status>${escapeXML(item[FIELD_MAP.status] || '')}</Status>
   <Quantity>${escapeXML(item['Quantity'] || '0')}</Quantity>
+  <ConsolidatedQuantity>${item['DuplicateInfo'] ? 'true' : 'false'}</ConsolidatedQuantity>
   <GeneratedDate>${new Date().toISOString()}</GeneratedDate>
 </BookOrder>
 `;

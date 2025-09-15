@@ -182,12 +182,13 @@
             text-overflow: ellipsis;
         }
 
-        .table th:nth-child(1), .table td:nth-child(1) { width: 15%; }
-        .table th:nth-child(2), .table td:nth-child(2) { width: 35%; }
-        .table th:nth-child(3), .table td:nth-child(3) { width: 12%; }
-        .table th:nth-child(4), .table td:nth-child(4) { width: 20%; }
-        .table th:nth-child(5), .table td:nth-child(5) { width: 10%; }
-        .table th:nth-child(6), .table td:nth-child(6) { width: 8%; }
+        .table th:nth-child(1), .table td:nth-child(1) { width: 12%; } /* Master Order ID */
+        .table th:nth-child(2), .table td:nth-child(2) { width: 30%; } /* Title */
+        .table th:nth-child(3), .table td:nth-child(3) { width: 10%; } /* Trim Size */
+        .table th:nth-child(4), .table td:nth-child(4) { width: 18%; } /* Paper */
+        .table th:nth-child(5), .table td:nth-child(5) { width: 10%; } /* Quantity */
+        .table th:nth-child(6), .table td:nth-child(6) { width: 12%; } /* Status */
+        .table th:nth-child(7), .table td:nth-child(7) { width: 8%; }  /* Action */
 
         .table td:nth-child(2) {
             white-space: nowrap;
@@ -202,6 +203,10 @@
         .table-secondary {
             background-color: #e9ecef;
             font-weight: 600;
+        }
+
+        .table-info {
+            background-color: rgba(13, 202, 240, 0.1);
         }
 
         .delete-btn {
@@ -389,7 +394,8 @@
                                         </div>
                                         <small class="text-muted">
                                             Supported formats: Excel (.xlsx, .xls) and CSV (.csv)<br>
-                                            <!--File should contain Master Order IDs in column D, quantities in column B, dates in column C-->
+                                            File should contain Master Order IDs in column D, quantities in column B, dates in column C<br>
+                                            <strong>Note:</strong> Duplicate Master Order IDs will be automatically detected and quantities consolidated.
                                         </small>
                                     </div>
                                 </div>
@@ -420,6 +426,7 @@
                                                 <th scope="col">Trim Size</th>
                                                 <th scope="col">Paper</th>
                                                 <th scope="col">Quantity</th>
+                                                <th scope="col">Status</th>
                                                 <th scope="col">Action</th>
                                             </tr>
                                         </thead>
