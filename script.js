@@ -388,20 +388,21 @@ function processData() {
         const match = findByMasterId(masterId);
         
         if (match) {
-            const trimSize = formatTrimSize(match[FIELD_MAP.trimWidth], match[FIELD_MAP.trimHeight]);
-            const resultWithQuantity = {
-                [FIELD_MAP.masterId]: match[FIELD_MAP.masterId],
-                [FIELD_MAP.isbn]: match[FIELD_MAP.isbn],
-                [FIELD_MAP.title]: match[FIELD_MAP.title],
-                'Trim Size': trimSize,
-                [FIELD_MAP.paperDesc]: match[FIELD_MAP.paperDesc],
-                [FIELD_MAP.bindStyle]: match[FIELD_MAP.bindStyle],
-                [FIELD_MAP.extent]: match[FIELD_MAP.extent],
-                [FIELD_MAP.status]: match[FIELD_MAP.status],
-                'Quantity': quantity,
-                'DuplicateInfo': masterIdData[masterId].duplicateCount > 1 ? 
-                    `Consolidated from ${masterIdData[masterId].duplicateCount} entries` : null
-            };
+    const trimSize = formatTrimSize(match[FIELD_MAP.trimWidth], match[FIELD_MAP.trimHeight]);
+    const resultWithQuantity = {
+        [FIELD_MAP.masterId]: match[FIELD_MAP.masterId],
+        [FIELD_MAP.isbn]: match[FIELD_MAP.isbn],
+        [FIELD_MAP.title]: match[FIELD_MAP.title],
+        'Trim Size': trimSize,
+        [FIELD_MAP.paperDesc]: match[FIELD_MAP.paperDesc],
+        [FIELD_MAP.bindStyle]: match[FIELD_MAP.bindStyle],
+        [FIELD_MAP.extent]: match[FIELD_MAP.extent],
+        [FIELD_MAP.coverSpine]: match[FIELD_MAP.coverSpine],
+        [FIELD_MAP.status]: match[FIELD_MAP.status],
+        'Quantity': quantity,
+        'DuplicateInfo': masterIdData[masterId].duplicateCount > 1 ? 
+            `Consolidated from ${masterIdData[masterId].duplicateCount} entries` : null
+    };
             
             searchResults.push(resultWithQuantity);
             foundIds.push(masterId);
@@ -1001,6 +1002,7 @@ function generateIndividualXMLContent(item) {
   <Paper>${escapeXML(item[FIELD_MAP.paperDesc] || '')}</Paper>
   <BindStyle>${escapeXML(item[FIELD_MAP.bindStyle] || '')}</BindStyle>
   <Extent>${escapeXML(item[FIELD_MAP.extent] || '')}</Extent>
+  <Spine>${escapeXML(item[FIELD_MAP.coverSpine] || '')}</Spine>
   <Status>${escapeXML(item[FIELD_MAP.status] || '')}</Status>
   <Quantity>${escapeXML(item['Quantity'] || '0')}</Quantity>
   <ConsolidatedQuantity>${item['DuplicateInfo'] ? 'true' : 'false'}</ConsolidatedQuantity>
