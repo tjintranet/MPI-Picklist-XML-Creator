@@ -349,6 +349,10 @@ function processData() {
             if (!['master id', 'masterid', 'master', 'master order id'].includes(masterId.toLowerCase())) {
                 const quantity = parseInt(String(quantityValue || '0').trim()) || 0;
                 
+                const orderDate = dateValue && String(dateValue).trim() !== '' && String(dateValue).trim().toLowerCase() !== 'date' 
+                    ? String(dateValue).trim() 
+                    : '';
+                
                 if (masterIdData[masterId]) {
                     masterIdData[masterId].quantity += quantity;
                     masterIdData[masterId].duplicateCount++;
@@ -356,10 +360,11 @@ function processData() {
                 } else {
                     masterIdData[masterId] = {
                         quantity: quantity,
-                        duplicateCount: 1
+                        duplicateCount: 1,
+                        orderDate: orderDate
                     };
                 }
-                console.log(`Processed: Master Order ID = ${masterId}, Quantity = ${quantity}`);
+                console.log(`Processed: Master Order ID = ${masterId}, Quantity = ${quantity}, Date = ${orderDate}`);
             }
         }
     }
@@ -400,6 +405,7 @@ function processData() {
                 [FIELD_MAP.coverSpine]: match[FIELD_MAP.coverSpine],
                 [FIELD_MAP.status]: match[FIELD_MAP.status],
                 'Quantity': quantity,
+                'OrderDate': masterIdData[masterId].orderDate || '',
                 'DuplicateInfo': masterIdData[masterId].duplicateCount > 1 ? 
                     `Consolidated from ${masterIdData[masterId].duplicateCount} entries` : null
             };
@@ -1009,6 +1015,7 @@ function generateIndividualXMLContent(item) {
   <Spine>${escapeXML(item[FIELD_MAP.coverSpine] || '')}</Spine>
   <Status>${escapeXML(item[FIELD_MAP.status] || '')}</Status>
   <Quantity>${escapeXML(item['Quantity'] || '0')}</Quantity>
+  <OrderDate>${escapeXML(item['OrderDate'] || '')}</OrderDate>
   <ConsolidatedQuantity>${item['DuplicateInfo'] ? 'true' : 'false'}</ConsolidatedQuantity>
   <GeneratedDate>${new Date().toISOString()}</GeneratedDate>
 </BookOrder>
