@@ -158,7 +158,7 @@ function handleCsvFile(file) {
                 return;
             }
 
-            showStatus(`CSV file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column D, quantities from column B, and work date from column C...`, 'success');
+            showStatus(`CSV file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column E, quantities from column C, and work date from column D...`, 'success');
             setTimeout(processData, 1000);
             
         } catch (error) {
@@ -199,7 +199,7 @@ function handleExcelFile(file) {
 
             console.log('Excel file processed. Sample data:', csvData.slice(0, 3));
             
-            showStatus(`Excel file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column D, quantities from column B, and work date from column C...`, 'success');
+            showStatus(`Excel file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column E, quantities from column C, and work date from column D...`, 'success');
             setTimeout(processData, 1000);
             
         } catch (error) {
@@ -329,13 +329,13 @@ function processData() {
     for (let i = 1; i < csvData.length; i++) {
         const row = csvData[i];
         
-        while (row.length < 4) {
+        while (row.length < 5) {
             row.push('');
         }
         
-        const masterIdValue = row[3];
-        const quantityValue = row[1];
-        const dateValue = row[2];
+        const masterIdValue = row[4];
+        const quantityValue = row[2];
+        const dateValue = row[3];
         
         console.log(`Row ${i}: Master Order ID = ${masterIdValue}, Quantity = ${quantityValue}, Date = ${dateValue}`);
         
@@ -388,21 +388,21 @@ function processData() {
         const match = findByMasterId(masterId);
         
         if (match) {
-    const trimSize = formatTrimSize(match[FIELD_MAP.trimWidth], match[FIELD_MAP.trimHeight]);
-    const resultWithQuantity = {
-        [FIELD_MAP.masterId]: match[FIELD_MAP.masterId],
-        [FIELD_MAP.isbn]: match[FIELD_MAP.isbn],
-        [FIELD_MAP.title]: match[FIELD_MAP.title],
-        'Trim Size': trimSize,
-        [FIELD_MAP.paperDesc]: match[FIELD_MAP.paperDesc],
-        [FIELD_MAP.bindStyle]: match[FIELD_MAP.bindStyle],
-        [FIELD_MAP.extent]: match[FIELD_MAP.extent],
-        [FIELD_MAP.coverSpine]: match[FIELD_MAP.coverSpine],
-        [FIELD_MAP.status]: match[FIELD_MAP.status],
-        'Quantity': quantity,
-        'DuplicateInfo': masterIdData[masterId].duplicateCount > 1 ? 
-            `Consolidated from ${masterIdData[masterId].duplicateCount} entries` : null
-    };
+            const trimSize = formatTrimSize(match[FIELD_MAP.trimWidth], match[FIELD_MAP.trimHeight]);
+            const resultWithQuantity = {
+                [FIELD_MAP.masterId]: match[FIELD_MAP.masterId],
+                [FIELD_MAP.isbn]: match[FIELD_MAP.isbn],
+                [FIELD_MAP.title]: match[FIELD_MAP.title],
+                'Trim Size': trimSize,
+                [FIELD_MAP.paperDesc]: match[FIELD_MAP.paperDesc],
+                [FIELD_MAP.bindStyle]: match[FIELD_MAP.bindStyle],
+                [FIELD_MAP.extent]: match[FIELD_MAP.extent],
+                [FIELD_MAP.coverSpine]: match[FIELD_MAP.coverSpine],
+                [FIELD_MAP.status]: match[FIELD_MAP.status],
+                'Quantity': quantity,
+                'DuplicateInfo': masterIdData[masterId].duplicateCount > 1 ? 
+                    `Consolidated from ${masterIdData[masterId].duplicateCount} entries` : null
+            };
             
             searchResults.push(resultWithQuantity);
             foundIds.push(masterId);
@@ -523,7 +523,7 @@ function updateFilteredSummary() {
                 <h6><i class="bi bi-funnel"></i> MPI Filter Active:</h6>
                 <p class="mb-1">Showing <strong>${currentResults.length}</strong> items with MPI status. 
                 <strong>${podReadyCount}</strong> Pod Ready items are hidden.</p>
-                <small class="text-muted">Toggle "MPI Only" filter to see all results.</small>
+                <small class="text-muted">Toggle off "MPI Only" filter to see all results.</small>
             </div>`;
     }
 
@@ -572,7 +572,7 @@ function updateResultsDisplay() {
         const headerRow = tbody.insertRow();
         headerRow.className = 'table-secondary';
         const headerCell = headerRow.insertCell();
-        headerCell.colSpan = 7;
+        headerCell.colSpan = 8;
         
         const filterSuffix = mpiFilterActive ? ' (MPI filtered)' : '';
         headerCell.innerHTML = `
@@ -597,18 +597,19 @@ function updateResultsDisplay() {
             }
             
             row.insertCell(0).textContent = result[FIELD_MAP.masterId];
-            row.insertCell(1).textContent = result[FIELD_MAP.title] || '';
-            row.insertCell(2).textContent = result['Trim Size'] || '';
-            row.insertCell(3).textContent = result[FIELD_MAP.paperDesc] || '';
+            row.insertCell(1).textContent = result[FIELD_MAP.isbn] || '';
+            row.insertCell(2).textContent = result[FIELD_MAP.title] || '';
+            row.insertCell(3).textContent = result['Trim Size'] || '';
+            row.insertCell(4).textContent = result[FIELD_MAP.paperDesc] || '';
             
-            const quantityCell = row.insertCell(4);
+            const quantityCell = row.insertCell(5);
             let quantityContent = result['Quantity'] || '';
             if (result['DuplicateInfo']) {
                 quantityContent += ' <i class="bi bi-stack text-info" title="' + result['DuplicateInfo'] + '"></i>';
             }
             quantityCell.innerHTML = quantityContent;
             
-            const statusCell = row.insertCell(5);
+            const statusCell = row.insertCell(6);
             const statusText = result[FIELD_MAP.status] || '';
             if (status === 'mpi') {
                 statusCell.innerHTML = `<span class="badge bg-warning text-dark">${statusText}</span>`;
@@ -616,7 +617,7 @@ function updateResultsDisplay() {
                 statusCell.textContent = statusText;
             }
             
-            const actionCell = row.insertCell(6);
+            const actionCell = row.insertCell(7);
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
             deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
@@ -756,7 +757,6 @@ function downloadPDF() {
             pdf.setFontSize(9);
             pdf.setFont(undefined, 'italic');
             const noteYPos = mpiFilterActive ? yPos - 3 : yPos - 4;
-            /*pdf.text(`Note: ${consolidatedItems.length} item${consolidatedItems.length === 1 ? ' has' : 's have'} consolidated quantities from duplicate entries.`, 20, noteYPos);*/
         }
 
         if (missingMasterIds.length > 0) {
@@ -786,7 +786,6 @@ function downloadPDF() {
             }
             
             yPos += 10;
-            
         }
 
         const groupedResults = {};
@@ -800,11 +799,12 @@ function downloadPDF() {
 
         const colPositions = {
             masterId: { x: 15 },
-            title: { x: 35 },
-            trimSize: { x: 95 },
-            paper: { x: 110 },
-            quantity: { x: 150 },
-            status: { x: 165 }
+            isbn: { x: 32 },
+            title: { x: 55 },
+            trimSize: { x: 105 },
+            paper: { x: 125 },
+            quantity: { x: 165 },
+            status: { x: 180 }
         };
 
         const paperTypes = Object.keys(groupedResults).sort();
@@ -837,6 +837,7 @@ function downloadPDF() {
             pdf.setFontSize(8);
             pdf.setFont(undefined, 'bold');
             pdf.text('Master ID', colPositions.masterId.x, yPos);
+            pdf.text('ISBN', colPositions.isbn.x, yPos);
             pdf.text('Title', colPositions.title.x, yPos);
             pdf.text('Trim Size', colPositions.trimSize.x, yPos);
             pdf.text('Paper', colPositions.paper.x, yPos);
@@ -864,6 +865,7 @@ function downloadPDF() {
                     
                     pdf.setFontSize(8);
                     pdf.text('Master ID', colPositions.masterId.x, yPos);
+                    pdf.text('ISBN', colPositions.isbn.x, yPos);
                     pdf.text('Title', colPositions.title.x, yPos);
                     pdf.text('Trim Size', colPositions.trimSize.x, yPos);
                     pdf.text('Paper', colPositions.paper.x, yPos);
@@ -876,6 +878,7 @@ function downloadPDF() {
                 }
 
                 const masterId = String(result[FIELD_MAP.masterId] || '');
+                const isbn = String(result[FIELD_MAP.isbn] || '');
                 const title = String(result[FIELD_MAP.title] || '');
                 const trimSize = String(result['Trim Size'] || '');
                 const paper = String(result[FIELD_MAP.paperDesc] || '');
@@ -883,9 +886,10 @@ function downloadPDF() {
                 const status = String(result[FIELD_MAP.status] || '');
 
                 pdf.text(masterId.length > 10 ? masterId.substring(0, 10) + '..' : masterId, colPositions.masterId.x, yPos);
+                pdf.text(isbn.length > 13 ? isbn.substring(0, 13) : isbn, colPositions.isbn.x, yPos);
                 
-                if (title.length > 30) {
-                    pdf.text(title.substring(0, 30) + '...', colPositions.title.x, yPos);
+                if (title.length > 25) {
+                    pdf.text(title.substring(0, 25) + '...', colPositions.title.x, yPos);
                 } else {
                     pdf.text(title, colPositions.title.x, yPos);
                 }
