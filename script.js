@@ -158,7 +158,7 @@ function handleCsvFile(file) {
                 return;
             }
 
-            showStatus(`CSV file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column E, quantities from column C, and work date from column D...`, 'success');
+            showStatus(`CSV file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column D, quantities from column B, and work date from column C...`, 'success');
             setTimeout(processData, 1000);
             
         } catch (error) {
@@ -199,7 +199,7 @@ function handleExcelFile(file) {
 
             console.log('Excel file processed. Sample data:', csvData.slice(0, 3));
             
-            showStatus(`Excel file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column E, quantities from column C, and work date from column D...`, 'success');
+            showStatus(`Excel file loaded successfully! Found ${csvData.length - 1} data rows. Processing Master Order IDs from column D, quantities from column B, and work date from column C...`, 'success');
             setTimeout(processData, 1000);
             
         } catch (error) {
@@ -329,13 +329,13 @@ function processData() {
     for (let i = 1; i < csvData.length; i++) {
         const row = csvData[i];
         
-        while (row.length < 5) {
+        while (row.length < 4) {
             row.push('');
         }
         
-        const masterIdValue = row[4];
-        const quantityValue = row[2];
-        const dateValue = row[3];
+        const masterIdValue = row[3];
+        const quantityValue = row[1];
+        const dateValue = row[2];
         
         console.log(`Row ${i}: Master Order ID = ${masterIdValue}, Quantity = ${quantityValue}, Date = ${dateValue}`);
         
