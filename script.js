@@ -58,6 +58,7 @@ function setupEventListeners() {
     const csvFileInput = document.getElementById('csvFileInput');
     const downloadPdfBtn = document.getElementById('downloadPdfBtn');
     const downloadXmlBtn = document.getElementById('downloadXmlBtn');
+    const downloadExcelBtn = document.getElementById('downloadExcelBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const mpiFilterToggle = document.getElementById('mpiFilterToggle');
     
@@ -71,6 +72,10 @@ function setupEventListeners() {
     
     if (downloadXmlBtn) {
         downloadXmlBtn.addEventListener('click', downloadXML);
+    }
+    
+    if (downloadExcelBtn) {
+        downloadExcelBtn.addEventListener('click', downloadPaperUsageExcel);
     }
     
     if (clearAllBtn) {
@@ -468,6 +473,9 @@ function displayResults(searchedIds, foundIds, totalOriginalEntries = null, dupl
     updateResultsDisplay();
 
     document.getElementById('resultsCard').style.display = 'block';
+    document.getElementById('downloadPdfBtn').disabled = false;
+    document.getElementById('downloadXmlBtn').disabled = false;
+    document.getElementById('downloadExcelBtn').disabled = false;
     document.getElementById('uploadStatus').innerHTML = '';
 }
 
@@ -1069,12 +1077,140 @@ function clearAll() {
     document.getElementById('searchSummary').innerHTML = '';
     document.getElementById('downloadPdfBtn').disabled = true;
     document.getElementById('downloadXmlBtn').disabled = true;
+    document.getElementById('downloadExcelBtn').disabled = true;
     
     showStatus('Application cleared successfully. Ready for new upload.', 'success');
     
     setTimeout(() => {
         document.getElementById('uploadStatus').innerHTML = '';
     }, 3000);
+}
+
+function downloadPaperUsageExcel() {
+    const currentResults = getCurrentResults();
+    
+    if (currentResults.length === 0) {
+        showStatus('No results to download.', 'warning');
+        return;
+    }
+
+    if (typeof XLSX === 'undefined') {
+        showStatus('Excel library not loaded. Please refresh the page and try again.', 'danger');
+        return;
+    }
+
+    try {
+        console.log('Generating paper usage Excel file for', currentResults.length, 'results');
+
+        // Calculate paper usage grouped by Paper Type and MPI Status
+        const usageByPaperAndStatus = {};
+        
+        for (const result of currentResults) {
+            const paperType = String(result[FIELD_MAP.paperDesc] || 'Unknown').trim();
+            const status = String(result[FIELD_MAP.status] || 'Unknown').trim();
+            const extent = parseInt(result[FIELD_MAP.extent] || 0);
+            const quantity = parseInt(result['Quantity'] || 0);
+            
+            // Calculate sheets: (Extent / 2) * Quantity
+            const sheets = (extent / 2) * quantity;
+            
+            // Create grouping key
+            const key = `${paperType}|||${status}`;
+            
+            if (!usageByPaperAndStatus[key]) {
+                usageByPaperAndStatus[key] = {
+                    paperType: paperType,
+                    status: status,
+                    totalSheets: 0,
+                    itemCount: 0
+                };
+            }
+            
+            usageByPaperAndStatus[key].totalSheets += sheets;
+            usageByPaperAndStatus[key].itemCount += 1;
+        }
+
+        // Convert to array and sort
+        const usageData = Object.values(usageByPaperAndStatus);
+        usageData.sort((a, b) => {
+            // Sort by paper type first, then by status
+            if (a.paperType !== b.paperType) {
+                return a.paperType.localeCompare(b.paperType);
+            }
+            return a.status.localeCompare(b.status);
+        });
+
+        // Create Excel data structure
+        const excelData = [];
+        
+        // Add header row
+        excelData.push([
+            'Paper Type',
+            'MPI Status',
+            'Item Count',
+            'Total Sheets Required'
+        ]);
+
+        // Add data rows
+        let grandTotalSheets = 0;
+        let grandTotalItems = 0;
+        
+        for (const usage of usageData) {
+            excelData.push([
+                usage.paperType,
+                usage.status,
+                usage.itemCount,
+                Math.round(usage.totalSheets)
+            ]);
+            grandTotalSheets += usage.totalSheets;
+            grandTotalItems += usage.itemCount;
+        }
+
+        // Add summary row
+        excelData.push([]);
+        excelData.push([
+            'TOTAL',
+            '',
+            grandTotalItems,
+            Math.round(grandTotalSheets)
+        ]);
+
+        // Add metadata
+        excelData.push([]);
+        //excelData.push(['Generated:', new Date().toLocaleString()]);
+        excelData.push(['Work Date:', workDate || 'N/A']);
+        excelData.push(['Filter:', mpiFilterActive ? 'MPI Only' : 'All Items']);
+        //excelData.push(['Calculation:', 'Sheets = (Extent / 2) × Quantity']);
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 35 },  // Paper Type
+            { wch: 15 },  // MPI Status
+            { wch: 12 },  // Item Count
+            { wch: 22 }   // Total Sheets
+        ];
+
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Paper Usage');
+
+        // Generate filename
+        const filterPrefix = mpiFilterActive ? 'MPI_' : '';
+        const fileName = `Paper_Usage_${filterPrefix}${formatWorkDateForWTL(workDate)}.xlsx`;
+
+        // Download file
+        XLSX.writeFile(wb, fileName);
+        
+        showStatus('Excel file generated successfully!', 'success');
+        console.log('Excel file downloaded:', fileName);
+        
+    } catch (error) {
+        console.error('Error generating Excel file:', error);
+        showStatus('Error generating Excel file. Please try again.', 'danger');
+    }
 }
 
 function showStatus(message, type) {
