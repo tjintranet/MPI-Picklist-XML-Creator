@@ -146550,5 +146550,19 @@
     "Cover Spine": 13,
     "Packing": "Pack (88) (8) Base.",
     "Status": "POD Ready"
+  },
+  {
+    "ISBN": 9781405951159,
+    "Master Order ID": "TJU779",
+    "Title": "A STRANGER ON BOARD (003)",
+    "Trim Height": 198,
+    "Trim Width": 129,
+    "Bind Style": "PU\/2",
+    "Extent": 416,
+    "Paper Desc": "Holmen Bulky 52 gsm",
+    "Cover Spec": "C400P2",
+    "Cover Spine": 25,
+    "Packing": "Pack (40) (8) Base.",
+    "Status": "POD Ready"
   }
 ]
