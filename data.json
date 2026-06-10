@@ -146816,5 +146816,33 @@
     "Cover Spine": 10,
     "Packing": "Pack (44) MUST",
     "Status": "POD Ready"
+  },
+  {
+    "ISBN": 9781862304192,
+    "Master Order ID": "TJV142",
+    "Title": "THE LADY GRACE MYSTERIES JINX (016)",
+    "Trim Height": 198,
+    "Trim Width": 129,
+    "Bind Style": "PU\/2",
+    "Extent": 208,
+    "Paper Desc": "Holmen Bulky 52 gsm",
+    "Cover Spec": "C400P2",
+    "Cover Spine": 13,
+    "Packing": "Pack (50) MUST",
+    "Status": "POD Ready"
+  },
+  {
+    "ISBN": 9781862301580,
+    "Master Order ID": "TJV641",
+    "Title": "JUST LIKE TOMORROW (018)",
+    "Trim Height": 198,
+    "Trim Width": 129,
+    "Bind Style": "PU\/2",
+    "Extent": 192,
+    "Paper Desc": "Holmen Bulky 52 gsm",
+    "Cover Spec": "C400P2",
+    "Cover Spine": 12,
+    "Packing": "Pack (40) (8) Base. MUST",
+    "Status": "POD Ready"
   }
 ]
